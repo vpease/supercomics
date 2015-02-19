@@ -1,0 +1,73 @@
+<!--
+  This template loads for the 'tab.friend-detail' state (app.js)
+  'friend' is a $scope variable created in the FriendsCtrl controller (controllers.js)
+  The FriendsCtrl pulls data from the Friends service (service.js)
+  The Friends service returns an array of friend data
+-->
+<ion-view title="Colección Completa">
+    <ion-nav-buttons side="right">
+        <button class="button icon ion-home" ui-sref="tab.cats">Inicio</button>
+    </ion-nav-buttons>
+  <ion-content has-header="true" padding="true" style="background-color:#A4A4A4">
+    <div class="card">
+        <div class="item item-thumbnail item-icon-right">
+            <a ui-sref='tab.cat-detail({catId:cat._id})'>
+                <i class="icon ion-chevron-up"></i>
+            </a>
+            <div class="row">
+                <div class="col-30">
+                    <img style="width:auto;height:auto" ng-src={{cat.avatar}}>
+                    <img style="width:auto;height:auto" ng-src={{col.tipo}}>
+                </div>
+                <div class="col">
+                    <h2>{{col.name}}</h2>
+                    <p>{{col.tags}}</p>
+                    <p>{{col.numeros}} números</p>
+                </div>
+            </div>
+        </div>
+        <div class="item item-divider">
+            <label class="item item-input">
+                <input type="text" ng-model="token" placeholder="Buscar"/>
+            </label>
+            <div>
+                <label class="item item-input item-select">
+                    <div class="input-label">
+                        Ordernar
+                    </div>
+                    <select ng-model="sortToken">
+                        <option value="doc.published">Antiguos</option>
+                        <option value="-doc.published">Nuevos</option>
+                        <option value="doc.notas">Notas</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="list">
+        <a class="item item-thumbnail-left item-icon-right"
+           ng-repeat="comic in comics | filter:token | orderBy:sortToken"
+           ui-sref='tab.comic({catId:cat._id,colId:col._id,comicId:comic.id})'>
+            <img ng-src='{{comic.doc.tipo}}'>
+            <h2>Número: {{comic.doc.numero}} de {{col.numeros}}</h2>
+            <p>Publicado: {{comic.doc.published}}</p>
+            <p>Descripción: {{comic.doc.descripcion}}</p>
+            <p>Precio: {{comic.doc.precio}} soles</p>
+            <i class="icon ion-chevron-right"></i>
+            <!--
+
+            <div class="row">
+                <div class="col-20">
+                    <img ng-src='{{comic.doc.tipo}}'>
+                </div>
+                <div class="col" align="left">
+                  <h2>Número: {{comic.doc.numero}} de {{col.numeros}}</h2>
+                  <p>Publicado: {{comic.doc.published}}</p>
+                  <p>Notas: {{comic.doc.notas}}</p>
+                  <p>Precio: {{comic.doc.precio}} soles</p>
+                </div>
+            </div> -->
+        </a>
+    </div>
+  </ion-content>
+</ion-view>

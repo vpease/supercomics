@@ -1,0 +1,12 @@
+{
+  "name": "supercomics",
+  "app_id": "98a903d7",
+  "gulpStartupTasks": [
+    "sass",
+    "watch"
+  ],
+  "watchPatterns": [
+    "www/**/*",
+    "!www/lib/**/*"
+  ]
+}

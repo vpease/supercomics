@@ -1,0 +1,16 @@
+<ion-view title="Editoriales" nav-clear="true">
+    <ion-slide-box
+            on-slide-changed="navChanged($index)"
+            show-pager="true"
+            pager-click='navSlide(index)'
+            auto-play="false"
+            does-continue="true" >
+      <ion-slide ng-repeat="cat in cats">
+          <div style='height:100%' class={{cat.doc.class}}>
+              <a ui-sref='tab.cat-detail({catId:cat.id})' >
+                  <img style="height: 100%;width:auto"  ng-src={{cat.doc.image}}>
+              </a>
+          </div>
+      </ion-slide>
+    </ion-slide-box>
+</ion-view>

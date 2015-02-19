@@ -1,0 +1,53 @@
+<!--
+  This template loads for the 'tab.friend-detail' state (app.js)
+  'friend' is a $scope variable created in the FriendsCtrl controller (controllers.js)
+  The FriendsCtrl pulls data from the Friends service (service.js)
+  The Friends service returns an array of friend data
+-->
+<ion-view title="Cómic">
+    <ion-nav-buttons side="right">
+        <button class="button icon ion-home" ui-sref="tab.cats">Inicio</button>
+    </ion-nav-buttons>
+    <ion-content header-shrink has-header="true" style="background-color:#A4A4A4">
+        <div class="card">
+            <div class="item item-avatar item-icon-right">
+                <img class="medium-image" ng-src="{{col.tipo}}">
+                <h2>{{col.name}}</h2>
+                <p>{{col.tags}}</p>
+                <a ui-sref='tab.comics({catId:cat._id,colId:col._id})'>
+                    <i class="icon ion-chevron-up"></i>
+                </a>
+            </div>
+            <div class="item item-divider">
+                <h2><b>Descripción:</b> {{comic.descripcion}}</br></h2>
+            </div>
+            <div class="item item-image-left" align="center">
+                <img ng-src='{{comic.tipo}}'>
+
+                <p>
+                    <b>Número:</b> {{comic.numero}} de {{col.numeros}}</br>
+                    <b>Tags:</b> {{comic.tags}}</br>
+                    <b>Publicado:</b> {{comic.published}}</br>
+                    <b>Barcode:</b> {{comic.ean}}</br>
+                    <b>Precio:</b> {{comic.precio}} soles</br>
+                </p>
+                <!--
+                <div class="row responsive-sm">
+                    <div>
+                        <img  class="full-image" ng-src='{{comic.tipo}}'>
+                    </div>
+					<div align="left">
+                        <b>Desc:</b> {{comic.descripcion}}</br>
+                        <b>Notas:</b> {{comic.notas}}</br>
+                        <b>Tags:</b> {{comic.tags}}</br>
+                        <b>Publicado:</b> {{comic.published}}</br>
+                        <b>Barcode:</b> {{comic.ean}}</br>
+                        <b>Precio:</b> {{comic.precio}} soles</br>
+                    </div>
+                </div>
+                -->
+            </div>
+            <div class="item item-divider"></div>
+        </div>
+    </ion-content>
+</ion-view>

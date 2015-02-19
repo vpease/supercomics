@@ -1,0 +1,28 @@
+.slider {
+    height: 100%;
+    text-align: center
+}
+.scroll {
+    height: 100%
+}
+.cat01{
+    background-color: red;
+}
+.cat02{
+    background-color: darkblue;
+}
+.cat03{
+    background-color: lightgray;
+}
+.cat04{
+    background-color: gray;
+}
+.cat05{
+    background-color: #2f6fad;
+}
+.cat06{
+    background-color: white;
+}
+.cat07{
+    background-color: black;
+}

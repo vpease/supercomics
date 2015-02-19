@@ -1,0 +1,42 @@
+<ion-view title="Buscar">
+    <div style="height: 50px"></div>
+  <ion-content has-header="true"  header-shrink>
+      <div class="card">
+          <div class="item item-divider">
+              <i class="icon ion-android-search"></i>
+              Colecciones
+          </div>
+          <div class="item item-text-wrap">
+              <p>Las colecciones tienen asignado un código de barras para todos los comics.</p>
+              <p>Los números especiales tienen un código especial</p>
+          </div>
+          <div class="item item-divider">
+              <button class="button button-block" ng-click="getBarcode()">
+                  Scan
+              </button>
+          </div>
+          <div class="item item-text-wrap">
+              <p>Ingresa el código de 13 dígitos si no puedes escanear el cómic</p>
+          </div>
+          <div class="item item-divider">
+              <form novalidate>
+                  <label class="item item-input">
+                      <input
+                              ng-model="barcode"
+                              id="barcode"
+                              name="barcode"
+                              type="number"
+                              maxlength="13"
+                              placeholder="Código de barras">
+                  </label>
+                  <button
+                          class="button button-block"
+                          ng-click="buscar(barcode)">
+                      Buscar
+                  </button>
+              </form>
+          </div>
+
+      </div>
+  </ion-content>
+</ion-view>
