@@ -46,7 +46,8 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                     );
                     admob.prepareInterstitial({adId:result.interstitial, autoshow:false});
                     admob.showInterstitial(); */
-                    admob.createBanner({
+
+                    /* admob.createBanner({
                         adId:result.banner,
                         adSize: window.AdMob.SMART_BANNER,
                         position: window.AdMob.AD_POSITION.TOP_CENTER,
@@ -56,7 +57,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         adId:result.interstitial,
                         isTesting:true,
                         autoShow: true});
-                    admob.showInterstitial();
+                    admob.showInterstitial();*/
                 }
             }, function(error){
                 console.log('Error recuperando plataforma:'+ error);

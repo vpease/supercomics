@@ -17,6 +17,10 @@
   "cordovaPlugins": [
     "com.google.playservices",
     "com.google.cordova.admob",
-    "https://github.com/brodysoft/Cordova-SQLitePlugin.git"
+    "https://github.com/brodysoft/Cordova-SQLitePlugin.git",
+    "https://github.com/brodysoft/Cordova-SQLitePlugin",
+    "com.ionic.keyboard",
+    "org.apache.cordova.console",
+    "org.apache.cordova.device"
   ]
 }

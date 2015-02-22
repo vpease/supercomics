@@ -14,7 +14,7 @@ angular.module('db',[])
                 //PouchDB.plugin("pouchdb-load");
                 //console.log('ya cargué el plugin');
 
-                self.db = new window.PouchDB('supercomics',{
+                self.db = new PouchDB('supercomics',{
                     adapter: 'websql',
                     size: 50,
                     auto_compaction:true});
@@ -27,12 +27,6 @@ angular.module('db',[])
 
                 self.initial();
 
-                self.db.compact().then(function(info){
-                    console.log('DB compactada: ' +info);
-                }).catch(function(err){
-                    console.log('Error mientras compactando: '+ err);
-                });
-
                 console.log('ya se grabó');
             }
         };
@@ -44,22 +38,29 @@ angular.module('db',[])
                 var dumpFiles = ['data.txt'];
                 PouchDB.utils.Promise.all(dumpFiles.map(function (dumpFile) {
                     console.log('A punto de iniciar la carga de data.txt');
-                    return self.db.load('data/' + dumpFile);
+                    return self.db.load('/data/' + dumpFile);
                 })).then(function () {
                     console.log('Carga correcta');
                     localStorage['initial']='true';
                     $rootScope.$broadcast('dbinit:uptodate');
                 }).catch(function (err) {
-                    console.log('Error en la carga')
+                    console.log('Error en la carga'+err);
+                    $rootScope.$broadcast('dbinit:uptodate');
                 });
             } else {
                 console.log('Carga inicial no necesaria');
                 $rootScope.$broadcast('dbinit:uptodate');
             }
+            self.db.compact().then(function(info){
+                console.log('DB compactada: ' +info);
+            }).catch(function(err){
+                console.log('Error mientras compactando: '+ err);
+            });
+
         };
         self.replicate = function(){
             var sync = self.db.replicate.from(
-                'https://supermio.iriscouch.com:6984/supercomics',
+                'http://192.168.1.100:5984/supercomics',
                 {live:true, retry:true})
                 .on('paused',function(info){
                     console.log('Estoy en el estado paused');
