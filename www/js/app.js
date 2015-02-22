@@ -47,7 +47,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                     admob.prepareInterstitial({adId:result.interstitial, autoshow:false});
                     admob.showInterstitial(); */
 
-                    /* admob.createBanner({
+                    admob.createBanner({
                         adId:result.banner,
                         adSize: window.AdMob.SMART_BANNER,
                         position: window.AdMob.AD_POSITION.TOP_CENTER,
@@ -57,7 +57,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         adId:result.interstitial,
                         isTesting:true,
                         autoShow: true});
-                    admob.showInterstitial();*/
+                    admob.showInterstitial();
                 }
             }, function(error){
                 console.log('Error recuperando plataforma:'+ error);
@@ -67,10 +67,11 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
     })
     .run(function($rootScope,$location,Cats){
         $rootScope.$on('dbinit:uptodate',function(){
-                       console.log('Terminó la syncronizacion de diseño');
             ready = window.localStorage['cordovaready']||'false';
+            console.log('Terminó la syncronizacion de diseño y ahora cordova es:'+ ready);
             while (ready=='false') {
                 ready = window.localStorage['cordovaready']||'false';
+                       console.log('Esperando a Cordova!!');
             };
             $location.path('/tab/cats');
             $rootScope.$apply();

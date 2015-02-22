@@ -181,23 +181,23 @@ function ajax(options, adapterCallback) {
   };
 
   xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4 || requestCompleted) {
-      return;
-    }
-    clearTimeout(timer);
-    if (xhr.status >= 200 && xhr.status < 300) {
-      var data;
-      if (options.binary) {
-        data = createBlob([xhr.response || ''], {
-          type: xhr.getResponseHeader('Content-Type')
-        });
-      } else {
-        data = xhr.responseText;
+      if (xhr.readyState !== 4 || requestCompleted) {
+          return;
       }
-      onSuccess(data, xhr, callback);
-    } else {
-      onError(xhr, callback);
-    }
+      clearTimeout(timer);
+      if ((xhr.status >= 200 && xhr.status < 300) || (xhr.status==0 && xhr.responseText.length>0) ) {
+          var data;
+          if (options.binary) {
+              data = createBlob([xhr.response || ''], {
+                  type: xhr.getResponseHeader('Content-Type')
+              });
+          } else {
+              data = xhr.responseText;
+          }
+          onSuccess(data, xhr, callback);
+      } else {
+          onError(xhr, callback);
+      }
   };
 
   if (options.timeout > 0) {
