@@ -75,7 +75,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             };
             $location.path('/tab/cats');
             $rootScope.$apply();
-            Cats.replicate();
+            //Cats.replicate();
         });
          $rootScope.$on('db:uptodate',function(){
              console.log('Terminó la syncronizacion de datos');
