@@ -1,9 +1,10 @@
 angular.module('controllers', ['ngCordova'])
-    .controller('LoginCtrl',function($scope,Cats,Ads){
+    .controller('LoginCtrl',function($scope,Cats,Ads,$cordovaGoogleAnalytics){
         //Cats.data();
-
+        $cordovaGoogleAnalytics.trackView('login');
     })
-    .controller('DashCtrl', function($scope,$location,$rootScope,$ionicTabsDelegate,Cats,comics) {
+    .controller('DashCtrl', function($scope,$location,$rootScope,$ionicTabsDelegate,Cats,comics,$cordovaGoogleAnalytics) {
+        $cordovaGoogleAnalytics.trackView('dash');
         $scope.comics = comics.rows;
         $scope.setLink = function(pCat,pCol,pCom){
             url = "/tab/comic/"+pCat+"/"+pCol+"/"+pCom;
@@ -35,26 +36,33 @@ angular.module('controllers', ['ngCordova'])
         getCover();
 
     })
-    .controller('CatsCtrl', function($scope,$ionicSlideBoxDelegate, cats) {
+    .controller('CatsCtrl', function($scope,$ionicSlideBoxDelegate, cats,$cordovaGoogleAnalytics) {
+        $cordovaGoogleAnalytics.trackView('cats');
+        $scope.$on('$ionicView.enter',function(){
+            console.log('Updating slidebox');
+            $ionicSlideBoxDelegate.update();
+        });
         $scope.cats = cats.rows;
         $scope.navSlide = function(index){
             $ionicSlideBoxDelegate.slide(index,500);
-            alert("Slide: "+index);
+            console.log("Slided:  "+index);
         };
         $scope.navChanged = function(index){
-
+            console.log("Changed: "+index);
         }
     })
-    .controller('CatDetailCtrl', function($scope,cat,cols,Cats) {
+    .controller('CatDetailCtrl', function($scope,cat,cols,Cats,$cordovaGoogleAnalytics) {
+        $cordovaGoogleAnalytics.trackView('CatDetail');
         $scope.cat = cat;
         $scope.cols = cols.rows;
+        $scope.token="";
 		$scope.sortToken = '-doc.published';
         getCover = function(){
             angular.forEach($scope.cols,function(col){
                 Cats.getAttach(col.doc._id,Object.keys(col.doc._attachments)[0])
                     .then (function (result){
                     col.doc.tipo = result;
-                    console.log(result);
+                    //console.log(result);
                     //};
                     //console.log('cover del comic cargado');
                 },function (error){
@@ -64,10 +72,12 @@ angular.module('controllers', ['ngCordova'])
         };
         getCover();
     })
-    .controller('CatDetailComicsCtrl',function($scope,cat,col,comics,Cats){
+    .controller('CatDetailComicsCtrl',function($scope,cat,col,comics,Cats,$cordovaGoogleAnalytics){
+        $cordovaGoogleAnalytics.trackView('CatDetailComics');
         $scope.cat= cat;
         $scope.col = col;
         $scope.comics = comics.rows;
+        $scope.token="";
         $scope.sortToken = 'doc.published';
         $scope.getItemHeight = function(item,index){
             return (index %2)=== 0 ? 50:60;
@@ -76,7 +86,7 @@ angular.module('controllers', ['ngCordova'])
             Cats.getAttach(col._id,Object.keys(col._attachments)[0])
                 .then (function (result){
                 col.tipo = result;
-                console.log(result);
+                //console.log(result);
                 //};
                 console.log('cover del comic cargado');
             },function (error){
@@ -86,7 +96,7 @@ angular.module('controllers', ['ngCordova'])
                 Cats.getAttach(comic.id,Object.keys(comic.doc._attachments)[0])
                     .then (function (result){
                     comic.doc.tipo = result;
-                    console.log(result);
+                    //console.log(result);
                 }, function (error){
                     console.log('Error en el blob:'+ eror);
                 });
@@ -95,7 +105,8 @@ angular.module('controllers', ['ngCordova'])
         };
         getCover();
     })
-    .controller('CatDetailComicCtrl',function($scope,$state,cat,col,comic,Cats){
+    .controller('CatDetailComicCtrl',function($scope,$state,cat,col,comic,Cats,$cordovaGoogleAnalytics){
+        $cordovaGoogleAnalytics.trackView('CatDetailComic');
         $scope.cat= cat;
         $scope.col = col;
         $scope.comic = comic;

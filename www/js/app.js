@@ -1,5 +1,5 @@
 angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
-    .run(function($ionicPlatform,Ads,Cats) {
+    .run(function($ionicPlatform,Ads,Cats,$cordovaGoogleAnalytics) {
         $ionicPlatform.ready(function() {
         // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
         // for form inputs)
@@ -17,7 +17,9 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
 
             Ads.getPlat().then(function(result){
                 if (result){
-                    console.log('Se ha recuperado la plataforma:' + result);
+                    var admob = AdMob;
+                    console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
+                    console.log('La variable admob: '+JSON.stringify(admob));
                     var options = {
                         publisherID: result.banner,
                         adSize: 'SMART_BANNER',
@@ -25,9 +27,21 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         overlap: false, // True to allow banner overlap webview
                         offsetTopBar: true, // True to avoid ios7 status bar overlap
                         isTesting: true, // receiving test to
-                        Autoshow: true // auto show interstitial When loaded to
-                  };
-                    var admob = window.AdMob;
+                        Autoshow: true
+                    };
+                    admob.createBanner({
+                        adId:result.banner,
+                        adSize: window.AdMob.SMART_BANNER,
+                        position: window.AdMob.AD_POSITION.BOTTOM_CENTER,
+                        autoShow: true,
+                        isTesting: true,
+                        overlap: false});
+                    admob.prepareInterstitial({
+                        adId:result.interstitial,
+                        isTesting:true,
+                        autoShow: true});
+                    admob.showInterstitial();
+
                     /* admob.createBanner(options,
                         function () {
                             console.log ('success creando el banner');
@@ -47,21 +61,13 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                     admob.prepareInterstitial({adId:result.interstitial, autoshow:false});
                     admob.showInterstitial(); */
 
-                    admob.createBanner({
-                        adId:result.banner,
-                        adSize: window.AdMob.SMART_BANNER,
-                        position: window.AdMob.AD_POSITION.TOP_CENTER,
-                        autoShow: true,
-                        isTesting: true});
-                    admob.prepareInterstitial({
-                        adId:result.interstitial,
-                        isTesting:true,
-                        autoShow: true});
-                    admob.showInterstitial();
+
                 }
             }, function(error){
                 console.log('Error recuperando plataforma:'+ error);
             });
+            //$cordovaGoogleAnalytics.debugMode();
+            $cordovaGoogleAnalytics.startTrackerWithId('UA-58872977-5');
             Cats.data();
         });
     })
@@ -75,7 +81,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             };
             $location.path('/tab/cats');
             $rootScope.$apply();
-            //Cats.replicate();
+            Cats.replicate();
         });
          $rootScope.$on('db:uptodate',function(){
              console.log('Terminó la syncronizacion de datos');
@@ -88,8 +94,10 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
 		$ionicConfigProvider.navBar.alignTitle("center"); //Places them at the bottom for all OS
 		$ionicConfigProvider.tabs.position("bottom"); //Places them at the bottom for all OS
 		$ionicConfigProvider.tabs.style("standard"); //Makes them all look the same across all OS
+
 		})
-.config(function($stateProvider, $urlRouterProvider,$compileProvider) {
+    .config(function($stateProvider, $urlRouterProvider,$compileProvider) {
+
       $compileProvider.imgSrcSanitizationWhitelist('.*');
       //$compileProvider.imgSrcSanitizationWhitelist('img/*');
       //$compileProvider.imgSrcSanitizationWhitelist(/^\s*(https?|ftp|file|blob):|data:image\//);

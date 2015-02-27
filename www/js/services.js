@@ -10,22 +10,31 @@ angular.module('services', ['db'])
             getPlat: function(){
                 var dfd = $q.defer();
                 //platform = $cordovaDevice.getPlatform();
-
-                if( /(android)/i.test(navigator.userAgent) ) { // for android
+                console.log('El navegador es: '+navigator.userAgent);
+                if( /(windows phone)/i.test(navigator.userAgent) ) { // Windows Phone
+                    admobid = {
+                        banner: 'ca-app-pub-8360727579286709/5823034677',
+                        interstitial: 'ca-app-pub-8360727579286709/7299767879'
+                    };
+                    console.log('Admob para Windows Phone 8');
+                } else if( /(android)/i.test(navigator.userAgent) ) { // for android
                     admobid = {
                         banner: 'ca-app-pub-8360727579286709/4765103872',
                         interstitial: 'ca-app-pub-8360727579286709/6241837074'
                     };
+                    console.log('Admob para Android');
                 } else if(/(ipod|iphone|ipad)/i.test(navigator.userAgent)) {
                     admobid = {
                         banner: 'ca-app-pub-8360727579286709/4485902276',
                         interstitial: 'ca-app-pub-8360727579286709/5962635473'
                     };
+                    console.log('Admob para iOS');
                 } else {
                     admobid = {
                         banner: 'ca-app-pub-8360727579286709/5823034677',
                         interstitial: 'ca-app-pub-8360727579286709/7299767879'
                     };
+                    console.log('Admob para el resto');
                 }
                 dfd.resolve(admobid);
                 return dfd.promise;
