@@ -1,5 +1,5 @@
 angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
-    .run(function($ionicPlatform,Ads,Cats,$cordovaGoogleAnalytics) {
+    .run(function($ionicPlatform,Ads,Cats,$cordovaGoogleAnalytics,$cordovaDevice) {
         $ionicPlatform.ready(function() {
         // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
         // for form inputs)
@@ -29,13 +29,16 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         isTesting: true, // receiving test to
                         Autoshow: true
                     };
-                    admob.createBanner({
-                        adId:result.banner,
-                        adSize: window.AdMob.SMART_BANNER,
-                        position: window.AdMob.AD_POSITION.BOTTOM_CENTER,
-                        autoShow: true,
-                        isTesting: true,
-                        overlap: false});
+
+                    if($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0){
+                        admob.createBanner({
+                            adId:result.banner,
+                            adSize: window.AdMob.SMART_BANNER,
+                            position: window.AdMob.AD_POSITION.BOTTOM_CENTER,
+                            autoShow: true,
+                            isTesting: true,
+                            overlap: false});
+                    };
                     admob.prepareInterstitial({
                         adId:result.interstitial,
                         isTesting:true,
