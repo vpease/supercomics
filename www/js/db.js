@@ -62,7 +62,7 @@ angular.module('db',['ngCordova'])
         self.replicate = function(){
             var sync = self.db.replicate.from(
                 self.remoteserver,
-                {live:true, retry:true})
+                {live:false, retry:true})
                 .on('paused',function(info){
                     console.log('Estoy en el estado paused');
                     $rootScope.$broadcast('db:uptodate');
@@ -70,7 +70,14 @@ angular.module('db',['ngCordova'])
                 .on('change',function(info){
                     console.log('Cambios en la base de datos'+JSON.stringify(info));
                 }).on('complete',function(info){
+                    var timeout = 600000;
                     console.log('Sync data complete'+JSON.stringify(info));
+                    if (info.docs_written>0) timeout=6000000;
+                    setTimeout(function(){
+                        console.log('sync nuevamente');
+                        self.replicate();
+                    },timeout);
+                    $rootScope.$broadcast('db:uptodate');
                 }).on('uptodate',function(info){
                     console.log('Actualizado datos'+JSON.stringify(info));
                     $rootScope.$broadcast('db:uptodate');

@@ -22,6 +22,7 @@
     "org.apache.cordova.console",
     "org.apache.cordova.device",
     "https://github.com/danwilson/google-analytics-plugin.git",
-    "https://github.com/floatinghotpot/cordova-admob-pro"
+    "https://github.com/floatinghotpot/cordova-admob-pro",
+    "https://github.com/lisovin/cordova-wp8-viewport.git"
   ]
 }

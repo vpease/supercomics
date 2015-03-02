@@ -4,7 +4,7 @@
   The FriendsCtrl pulls data from the Friends service (service.js)
   The Friends service returns an array of friend data
 -->
-<ion-view title="Cómic">
+<ion-view title="Cómic" cache-view="false">
     <ion-nav-buttons side="right">
         <button class="button icon ion-home" ui-sref="tab.cats">Inicio</button>
     </ion-nav-buttons>
@@ -13,13 +13,13 @@
             <div class="item item-avatar item-icon-right">
                 <img class="medium-image" ng-src="{{col.tipo}}">
                 <h2>{{col.name}}</h2>
-                <p>{{col.tags}}</p>
+                <p aria-multiline="true">{{col.tags}}</p>
                 <a ui-sref='tab.comics({catId:cat._id,colId:col._id})'>
                     <i class="icon ion-chevron-up"></i>
                 </a>
             </div>
             <div class="item item-divider">
-                <h2><b>Descripción:</b> {{comic.descripcion}}</br></h2>
+                <h2><p aria-multiline="true"><b>Descripción:</b> {{comic.descripcion}}</p></h2>
             </div>
             <div class="item item-image-left" align="center">
                 <img ng-src='{{comic.tipo}}'>

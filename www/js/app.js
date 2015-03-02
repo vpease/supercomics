@@ -17,9 +17,8 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
 
             Ads.getPlat().then(function(result){
                 if (result){
-                    var admob = AdMob;
                     console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
-                    console.log('La variable admob: '+JSON.stringify(admob));
+                    console.log('La variable admob: '+JSON.stringify(AdMob));
                     var options = {
                         publisherID: result.banner,
                         adSize: 'SMART_BANNER',
@@ -29,21 +28,23 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         isTesting: true, // receiving test to
                         Autoshow: true
                     };
+                    if(AdMob){
+                        if($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0){
+                            AdMob.createBanner({
+                                adId:result.banner,
+                                adSize: AdMob.SMART_BANNER,
+                                position: AdMob.AD_POSITION.TOP_CENTER,
+                                autoShow: true,
+                                isTesting: true,
+                                overlap: false});
+                        };
+                        AdMob.prepareInterstitial({
+                            adId:result.interstitial,
+                            isTesting:true,
+                            autoShow: true});
+                        AdMob.showInterstitial();
+                    }
 
-                    if($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0){
-                        admob.createBanner({
-                            adId:result.banner,
-                            adSize: window.AdMob.SMART_BANNER,
-                            position: window.AdMob.AD_POSITION.BOTTOM_CENTER,
-                            autoShow: true,
-                            isTesting: true,
-                            overlap: false});
-                    };
-                    admob.prepareInterstitial({
-                        adId:result.interstitial,
-                        isTesting:true,
-                        autoShow: true});
-                    admob.showInterstitial();
 
                     /* admob.createBanner(options,
                         function () {
