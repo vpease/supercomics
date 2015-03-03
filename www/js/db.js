@@ -6,7 +6,7 @@ angular.module('db',['ngCordova'])
 .factory('DB',function($q,$rootScope) {
         var self = this;
         self.db;
-        self.remoteserver = 'http://andentleationsteathediti:OEpyUVQK75oJdQV3MmlrxpPl@vpease.cloudant.com/supercomics';
+        self.remoteserver = 'http://andentleationsteathediti:OEpyUVQK75oJdQV3MmlrxpPl@supercomics.supermio.com/supercomics';
         self.init = function() {
             if (!self.db) {
                 console.log('database is closed');
@@ -65,7 +65,7 @@ angular.module('db',['ngCordova'])
                 {live:false, retry:true})
                 .on('paused',function(info){
                     console.log('Estoy en el estado paused');
-                    $rootScope.$broadcast('db:uptodate');
+                    //$rootScope.$broadcast('db:uptodate');
                 })
                 .on('change',function(info){
                     console.log('Cambios en la base de datos'+JSON.stringify(info));
@@ -80,7 +80,7 @@ angular.module('db',['ngCordova'])
                     $rootScope.$broadcast('db:uptodate');
                 }).on('uptodate',function(info){
                     console.log('Actualizado datos'+JSON.stringify(info));
-                    $rootScope.$broadcast('db:uptodate');
+                    //$rootScope.$broadcast('db:uptodate');
                 }).on('error',function(err){
                     console.log('Error en sync datos: '+JSON.stringify(err));
                 })

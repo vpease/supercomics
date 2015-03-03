@@ -13,8 +13,6 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             console.log("App is ready!!");
             window.localStorage['cordovaready']='true';
 
-
-
             Ads.getPlat().then(function(result){
                 if (result){
                     console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
@@ -37,12 +35,13 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                                 autoShow: true,
                                 isTesting: true,
                                 overlap: false});
-                        };
-                        AdMob.prepareInterstitial({
-                            adId:result.interstitial,
-                            isTesting:true,
-                            autoShow: true});
-                        AdMob.showInterstitial();
+
+                            AdMob.prepareInterstitial({
+                                adId:result.interstitial,
+                                isTesting:true,
+                                autoShow: true});
+                            AdMob.showInterstitial();
+                        }
                     }
 
 

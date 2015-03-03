@@ -1,7 +1,7 @@
 angular.module('controllers', ['ngCordova'])
     .controller('LoginCtrl',function($scope,Cats,Ads,$cordovaGoogleAnalytics){
         //Cats.data();
-        $cordovaGoogleAnalytics.trackView('login');
+        //$cordovaGoogleAnalytics.trackView('login');
     })
     .controller('DashCtrl', function($scope,$location,$rootScope,$ionicTabsDelegate,Cats,comics,$cordovaGoogleAnalytics) {
         $cordovaGoogleAnalytics.trackView('dash');

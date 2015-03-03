@@ -2,14 +2,16 @@
   <ion-content header-shrink has-header="true" style="background-color:#A4A4A4">
     <div class="list card" style="background-color:#A4A4A4">
       <div ng-repeat="comic in comics"
-              class="card">
-        <div class="item item-avatar">
-            <img ng-src= '{{comic.doc.tipo }}'>
-            <h2>{{comic.doc.name}}</h2>
-            <p>Publicación: {{comic.key[0]}}</p>
-        </div>
+           class="card">
+          <div class="item item-avatar">
+              <img ng-src= '{{comic.doc.tipo }}'>
+              <h2>{{comic.doc.name}}</h2>
+              <p>Publicación: {{comic.key[0]}}</p>
+          </div>
           <!-- ui-sref="tab.comic({catId:comic.doc.cats[0].cat,colId:comic.doc._id,comicId:comic.id})" -->
-          <a analytics-on="click" analytics-event="Comic Nuevo:{{comic.doc._id}}" class="item item-thumbnail-left item-icon-right"
+          <a analytics-on="click"
+             analytics-event="Comic Nuevo:{{comic.doc._id}}"
+             class="item item-thumbnail-left item-icon-right"
              ng-click="setLink(comic.doc.cats[0].cat,comic.doc._id,comic.id)">
               <img class="full-image" ng-src='{{ comic.key[5] }}'>
               <p><b>Desc:</b> {{comic.key[1]}}</p>
