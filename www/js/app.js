@@ -23,7 +23,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                         bannerAtTop: true, // Set to true, to put banner at top
                         overlap: false, // True to allow banner overlap webview
                         offsetTopBar: true, // True to avoid ios7 status bar overlap
-                        isTesting: true, // receiving test to
+                        isTesting: false, // receiving test to
                         Autoshow: true
                     };
                     if(AdMob){
@@ -33,12 +33,12 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                                 adSize: AdMob.SMART_BANNER,
                                 position: AdMob.AD_POSITION.TOP_CENTER,
                                 autoShow: true,
-                                isTesting: true,
+                                isTesting: false,
                                 overlap: false});
 
                             AdMob.prepareInterstitial({
                                 adId:result.interstitial,
-                                isTesting:true,
+                                isTesting:false,
                                 autoShow: true});
                             AdMob.showInterstitial();
                         }
