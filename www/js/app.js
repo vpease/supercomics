@@ -15,8 +15,8 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
 
             Ads.getPlat().then(function(result){
                 if (result){
-                    console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
-                    console.log('La variable admob: '+JSON.stringify(AdMob));
+                    //console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
+                    //console.log('La variable admob: '+JSON.stringify(AdMob));
                     var options = {
                         publisherID: result.banner,
                         adSize: 'SMART_BANNER',
@@ -43,28 +43,6 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
                             AdMob.showInterstitial();
                         }
                     }
-
-
-                    /* admob.createBanner(options,
-                        function () {
-                            console.log ('success creando el banner');
-                            admob.requestAd({ 'isTesting': true },
-                                function() {
-                                    admob.showAd(true);
-                                },
-                                function() {
-                                    console.log('failed to request ad');
-                                }
-                            );
-                        },
-                        function (){
-                            console.log ('error creando el banner');
-                        }
-                    );
-                    admob.prepareInterstitial({adId:result.interstitial, autoshow:false});
-                    admob.showInterstitial(); */
-
-
                 }
             }, function(error){
                 console.log('Error recuperando plataforma:'+ error);
@@ -81,7 +59,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             while (ready=='false') {
                 ready = window.localStorage['cordovaready']||'false';
                        console.log('Esperando a Cordova!!');
-            };
+            }
             $location.path('/tab/cats');
             $rootScope.$apply();
             Cats.replicate();

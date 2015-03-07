@@ -23,41 +23,42 @@ angular.module('db',['ngCordova'])
                 }
                 //PouchDB.debug.enable('*');
                 self.initial();
-                console.log('ya se grabó');
+                //console.log('ya se grabó');
             }
         };
         self.initial = function(){
             window.localStorage['cargando']="false";
-
-            self.db.get('_local/initial_load_complete').catch(function(err){
-               if (err.status !== 404){
-                   throw err;
-               }
+            window.localStorage['cont']=0;
+            var datos = window.localStorage['datos']|'0';
+            console.log('verificando si hay datos cargados:'+datos);
+            if (datos=='0'){
                 console.log('Entrando a la carga de data.txt');
-                var dumpFiles = ['data.txt'];
-                PouchDB.utils.Promise.all(dumpFiles.map(function (dumpFile) {
-                    console.log('A punto de iniciar la carga de data.txt');
-                    window.localStorage['cargando']="true";
-                    return self.db.load('data/' + dumpFile,
-                        { proxy: self.remoteserver, ajax:{cache:true}});
-                })).then(function () {
-                    console.log('Carga correcta');
-                    window.localStorage['cargando']="false";
-                    self.db.put({_id: '_local/initial_load_complete'});
-                    $rootScope.$broadcast('dbinit:uptodate');
-                    return;
-                }).catch(function (err) {
-                    console.log('Error en la carga'+err);
-                    $rootScope.$broadcast('dbinit:uptodate');
+                var dumpFiles = ['data_00000000.txt','data_00000001.txt','data_00000002.txt','data_00000003.txt','data_00000004.txt','data_00000005.txt','data_00000006.txt'];
+                var series = PouchDB.utils.Promise.resolve();
+                var cont = 0;
+                dumpFiles.forEach(function (dumpFile) {
+                    console.log('Cargando archivo: '+dumpFile);
+                    self.db.load('data/' + dumpFile)
+                        .then(function(){
+                            cont+=1;
+                            window.localStorage['cont']=cont;
+                            console.log('archivo ok: '+dumpFile + ' contador: '+window.localStorage['cont']);
+                            if (window.localStorage['cont'] == dumpFiles.length) {
+                                console.log('archivo final');
+                                window.localStorage['datos']='1';
+                                $rootScope.$broadcast('dbinit:uptodate');
+                            }
+                        })
+                        .catch(function(err){
+                            console.log('Error al cargar: '+dumpFile+ ' '+JSON.stringify(err));
+                        })
                 });
-            }).then(function(){
-                if (window.localStorage['cargando']!=="true"){
+            } else {
+                if (window.localStorage['cargando']!=="true") {
                     console.log('La carga no fue necesaria');
                     $rootScope.$broadcast('dbinit:uptodate');
                 }
-            }).catch(function(err){
-                console.log('Este es un error inesperado '+err);
-            });
+            }
         };
         self.replicate = function(){
             var sync = self.db.replicate.from(
