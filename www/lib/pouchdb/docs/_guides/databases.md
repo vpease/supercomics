@@ -18,7 +18,7 @@ var db = new PouchDB('kittens');
 
 You can see a **[live example](http://bl.ocks.org/nolanlawson/bddac54b92c2d8d39241)** of this code.
 
-{% include alert_start.html variant="info" %}
+{% include alert/start.html variant="info" %}
 
 <strong>Protip:</strong> whenever you see a live example in this guide, you can download it to follow along at home! For example, to run this example, just enter the following commands in your command prompt:
 <p/>
@@ -30,7 +30,7 @@ You can see a **[live example](http://bl.ocks.org/nolanlawson/bddac54b92c2d8d392
 <p/>
 Now the site is up and running at <a href='http://localhost:8000'>http://localhost:8000</a>. To find the correct <code>gist.github.com</code> URL, just click the "block" number at the top of the page.
 
-{% include alert_end.html %}
+{% include alert/end.html %}
 
 Remote databases
 --------
@@ -97,20 +97,37 @@ The most important bits of information are:
 * `doc_count`: the number of undeleted documents in the database
 * `db_name`: the name of the database
 
-Debugging your local database
+Debugging
 ---------
 
-When you create a local PouchDB, you can use the developer tools to see what the database looks like under the hood.
+When you create a PouchDB database, there are many ways to debug and inspect it.
+
+### PouchDB Inspector
+
+PouchDB Inspector is an add-on for Chrome and Firefox that allows you to inspect your local databases.
+
+* [Download PouchDB Inspector for Chrome](https://chrome.google.com/webstore/detail/pouchdb-inspector/hbhhpaojmpfimakffndmpmpndcmonkfa)
+* [Download PouchDB Inspector for Firefox](https://addons.mozilla.org/en-US/firefox/addon/pouchdb-inspector/)
+
+{% include img.html src="pouchdb_inspector.png" alt="PouchDB Inspector in Chrome" %}
+
+It provides the full "Fauxton" interface, which is the same interface you will see in CouchDB and PouchDB Server.
+
+### IndexedDB/WebSQL inspectors
+
+You can also use the normal developer tools to see what your database looks like under the hood.
 
 In Chrome, just choose *Overflow icon* &#9776; &#8594; *Tools* &#8594; *Developer Tools*. Then click the *Resources* tab, then *IndexedDB*, and you should see the following:
 
 {% include img.html src="dev_tools.png" alt="Chrome Developer Tools" %}
 
-This is the raw IndexedDB representation of your PouchDB, so it may be a little fine-grained compared to what PouchDB shows. However, it's great for quick debugging.
+This is the raw IndexedDB representation of your PouchDB, so it is very fine-grained compared to what PouchDB Inspector shows. However, you may find it useful.
 
-In Safari, the `kittens` database will be under *WebSQL* instead of *IndexedDB*.
+In Safari, your database will be under *Develop* &#8594; *Show Web Inspector* &#8594; *Resources* &#8594; *Databases*.
 
-### Debug mode
+{% include img.html src="safari_inspector.png" alt="Web Inspector in Safari" %}
+
+### Debug logging
 
 You can also enable debug logging by doing:
 

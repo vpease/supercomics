@@ -141,7 +141,7 @@ If you fail to include the correct `_rev`, you will get the following sad error:
 Updating documents correctly
 -----------
 
-So to update Mittens' age, we will first need to fetch Mittens from the database, to ensure that we have the correct `_rev` before we put him back.
+So to update Mittens' age, we will first need to fetch Mittens from the database, to ensure that we have the correct `_rev` before we put him back. We don't need to manually assign the `_rev` value here (like we did above), as it is already in the `doc` we're fetching. 
 
 ```js
 // fetch mittens
@@ -160,11 +160,11 @@ db.get('mittens').then(function (doc) {
 
 You can see a **[live example](http://bl.ocks.org/nolanlawson/d6daa02ca3875d1222dd)** of this code.
 
-{% include alert_start.html variant="info" %}
+{% include alert/start.html variant="info" %}
 
 Don't worry if the structure of this code seems strange! It's using <strong>promises</strong>, which will be discussed in the next chapter.
 
-{% include alert_end.html %}
+{% include alert/end.html %}
 
 Now you should see the following:
 

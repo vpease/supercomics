@@ -35,28 +35,19 @@
             </div>
         </div>
     </div>
-    <div class="list card">
-      <a class="item item-avatar item-icon-right"
-         ng-repeat="col in cols | filter:token | orderBy:sortToken"
-         ui-sref='tab.comics({catId:cat._id,colId:col.id})'>
-          <img ng-src='{{col.doc.tipo}}'>
-          <p>
-          <h2>{{col.doc.name}}</h2>
-          <p>{{col.doc.numeros}} números</p>
-          <p>publicado el {{col.doc.published}}</p>
-          </p>
-          <i class="icon ion-chevron-right"></i>
-          <!-- <div class="row">
-              <div class="col">
-                  <img ng-src='{{col.doc.tipo}}'>
-              </div>
-              <div class="col col-center">
-                  <h2>{{col.doc.name}}</h2>
-                  <p>{{col.doc.numeros}} números</p>
-                  <p>publicado el {{col.doc.published}}</p>
-              </div>
-          </div> -->
-      </a>
-    </div>
+    <ion-list>
+        <a ng-repeat="col in cols | filter:token | orderBy:sortToken"
+           item-width="100%"
+           class="item item-avatar item-icon-right"
+           ui-sref='tab.comics({catId:cat._id,colId:col.id})'>
+            <img ng-src='{{col.doc.tipo}}'>
+
+            <h2>{{col.doc.name}}</h2>
+            <p>{{col.doc.numeros}} números</p>
+            <p>publicado el {{col.doc.published}}</p>
+
+            <i class="icon ion-chevron-right"></i>
+        </a>
+    </ion-list>
   </ion-content>
 </ion-view>

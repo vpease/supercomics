@@ -1,0 +1,15 @@
+{
+  "name": "node-sass",
+  "homepage": "https://github.com/andrew/node-sass",
+  "version": "2.1.1",
+  "_release": "2.1.1",
+  "_resolution": {
+    "type": "version",
+    "tag": "v2.1.1",
+    "commit": "10a8a190246c76d278de0a91a291b8165877cae3"
+  },
+  "_source": "git://github.com/andrew/node-sass.git",
+  "_target": "~2.1.1",
+  "_originalSource": "node-sass",
+  "_direct": true
+}

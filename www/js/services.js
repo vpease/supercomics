@@ -45,7 +45,7 @@ angular.module('services', ['db'])
         }
     })
 .factory('Cats', function($q,DB) {
-      var cats = [
+        var cats = [
         { _id: 'cat1', tipo: 'catalogo', avatar: 'img/cats/avatar01.png', class:'cat01', name: 'Marvel', image:'img/cats/cat01.png', color: 'red'},
         { _id: 'cat2', tipo: 'catalogo', avatar: 'img/cats/avatar02.png', class:'cat02', name: 'DC',image:'img/cats/cat02.png', color: 'blue' },
         { _id: 'cat3', tipo: 'catalogo', avatar: 'img/cats/avatar03.png', class:'cat03', name: 'Image',image:'img/cats/cat03.png', color: 'yellow' },
@@ -55,6 +55,10 @@ angular.module('services', ['db'])
           { _id: 'cat7', tipo: 'catalogo', avatar: 'img/cats/avatar07.png', class:'cat07', name: 'Skecthboy',image:'img/cats/cat07.png', color: 'white' }
       ];
   return {
+      copyLocal: function(key){
+          var temp = self.getWithAttach(key);
+
+      },
       data: function(){
           DB.init();
       },
@@ -91,6 +95,23 @@ angular.module('services', ['db'])
                   dfd.resolve(result);
               },function(error){
                   console.log('Error en getColecciones:'+error);
+              });
+          return dfd.promise;
+      },
+      getUltimosFecha: function(salto,limite){
+          var dfd =$q.defer();
+          var fecha = new Date();
+          var dia = (fecha.getDate().toString().length==2)?fecha.getDate():'0'+fecha.getDate();
+          var mes = (fecha.getMonth().toString().length==2)?(fecha.getMonth()+1):'0'+(fecha.getMonth()+1);
+          var anio= fecha.getFullYear();
+          var fechapar = anio+'/'+mes+'/'+dia;
+
+          DB.getView('comics/ultimos',{startkey:[fechapar,{}],skip:salto, limit:limite, descending:true,include_docs:true})
+              .then(function(result){
+                  console.log('Recuperando Ultimos');
+                  dfd.resolve(result);
+              },function(error){
+                  console.log('Error en getUltimo:'+error);
               });
           return dfd.promise;
       },

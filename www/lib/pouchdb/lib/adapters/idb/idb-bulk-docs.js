@@ -26,6 +26,7 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
   var attachStore;
   var attachAndSeqStore;
   var docInfoError;
+  var docCountDelta = 0;
 
   for (var i = 0, len = docInfos.length; i < len; i++) {
     var doc = docInfos[i];
@@ -45,7 +46,7 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
   var results = new Array(docInfos.length);
   var fetchedDocs = new utils.Map();
   var preconditionErrored = false;
-  var blobType = api._blobSupport ? 'blob' : 'base64';
+  var blobType = api._meta.blobSupport ? 'blob' : 'base64';
 
   utils.preprocessAttachments(docInfos, blobType, function (err) {
     if (err) {
@@ -128,8 +129,8 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
       return;
     }
 
-    Changes.notify(api._name);
-    api._docCount = -1; // invalidate
+    Changes.notify(api._meta.name);
+    api._meta.docCount += docCountDelta;
     callback(null, results);
   }
 
@@ -184,26 +185,28 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
     });
   }
 
-  function writeDoc(docInfo, winningRev, deleted, callback, isUpdate,
-                    delta, resultsIdx) {
+  function writeDoc(docInfo, winningRev, winningRevIsDeleted, newRevIsDeleted,
+                    isUpdate, delta, resultsIdx, callback) {
+
+    docCountDelta += delta;
 
     var doc = docInfo.data;
     doc._id = docInfo.metadata.id;
     doc._rev = docInfo.metadata.rev;
 
-    if (deleted) {
+    if (newRevIsDeleted) {
       doc._deleted = true;
     }
 
     var hasAttachments = doc._attachments &&
       Object.keys(doc._attachments).length;
     if (hasAttachments) {
-      return writeAttachments(docInfo, winningRev, deleted,
-        callback, isUpdate, resultsIdx);
+      return writeAttachments(docInfo, winningRev, winningRevIsDeleted,
+        isUpdate, resultsIdx, callback);
     }
 
-    finishDoc(docInfo, winningRev, deleted,
-      callback, isUpdate, resultsIdx);
+    finishDoc(docInfo, winningRev, winningRevIsDeleted,
+      isUpdate, resultsIdx, callback);
   }
 
   function autoCompact(docInfo) {
@@ -212,8 +215,8 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
     compactRevs(revsToDelete, docInfo.metadata.id, txn);
   }
 
-  function finishDoc(docInfo, winningRev, deleted, callback, isUpdate,
-                     resultsIdx) {
+  function finishDoc(docInfo, winningRev, winningRevIsDeleted,
+                     isUpdate, resultsIdx, callback) {
 
     var doc = docInfo.data;
     var metadata = docInfo.metadata;
@@ -229,7 +232,8 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
       metadata.seq = e.target.result;
       // Current _rev is calculated from _rev_tree on read
       delete metadata.rev;
-      var metadataToStore = encodeMetadata(metadata, winningRev, deleted);
+      var metadataToStore = encodeMetadata(metadata, winningRev,
+        winningRevIsDeleted);
       var metaDataReq = docStore.put(metadataToStore);
       metaDataReq.onsuccess = afterPutMetadata;
     }
@@ -262,8 +266,8 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
     putReq.onerror = afterPutDocError;
   }
 
-  function writeAttachments(docInfo, winningRev, deleted, callback,
-                            isUpdate, resultsIdx) {
+  function writeAttachments(docInfo, winningRev, winningRevIsDeleted,
+                            isUpdate, resultsIdx, callback) {
 
 
     var doc = docInfo.data;
@@ -273,8 +277,8 @@ function idbBulkDocs(req, opts, api, idb, Changes, callback) {
 
     function collectResults() {
       if (numDone === attachments.length) {
-        finishDoc(docInfo, winningRev, deleted, callback, isUpdate,
-          resultsIdx);
+        finishDoc(docInfo, winningRev, winningRevIsDeleted,
+          isUpdate, resultsIdx, callback);
       }
     }
 

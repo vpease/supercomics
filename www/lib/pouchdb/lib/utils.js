@@ -106,6 +106,11 @@ exports.filterChange = function filterChange(opts) {
   req.query = opts.query_params;
 
   return function filter(change) {
+    if (!change.doc) {
+      // CSG sends events on the changes feed that don't have documents,
+      // this hack makes a whole lot of existing code robust.
+      change.doc = {};
+    }
     if (opts.filter && hasFilter && !opts.filter.call(this, change.doc, req)) {
       return false;
     }
@@ -552,13 +557,16 @@ exports.updateDoc = function updateDoc(prev, docInfo, results,
     return cb();
   }
 
-  var previouslyDeleted = exports.isDeleted(prev);
+  // TODO: some of these can be pre-calculated, but it's safer to just
+  // call merge.winningRev() and exports.isDeleted() all over again
+  var previousWinningRev = merge.winningRev(prev);
+  var previouslyDeleted = exports.isDeleted(prev, previousWinningRev);
   var deleted = exports.isDeleted(docInfo.metadata);
   var isRoot = /^1-/.test(docInfo.metadata.rev);
 
   if (previouslyDeleted && !deleted && newEdits && isRoot) {
     var newDoc = docInfo.data;
-    newDoc._rev = merge.winningRev(prev);
+    newDoc._rev = previousWinningRev;
     newDoc._id = docInfo.metadata.id;
     docInfo = exports.parseDoc(newDoc, newEdits);
   }
@@ -583,18 +591,17 @@ exports.updateDoc = function updateDoc(prev, docInfo, results,
 
   // recalculate
   var winningRev = merge.winningRev(docInfo.metadata);
-  deleted = exports.isDeleted(docInfo.metadata, winningRev);
+  var winningRevIsDeleted = exports.isDeleted(docInfo.metadata, winningRev);
 
-  var delta = 0;
-  if (newEdits || winningRev === newRev) {
-    // if newEdits==false and we're pushing existing revisions,
-    // then the only thing that matters is whether this revision
-    // is the winning one, and thus replaces an old one
-    delta = (previouslyDeleted === deleted) ? 0 :
-      previouslyDeleted < deleted ? -1 : 1;
-  }
+  // calculate the total number of documents that were added/removed,
+  // from the perspective of total_rows/doc_count
+  var delta = (previouslyDeleted === winningRevIsDeleted) ? 0 :
+      previouslyDeleted < winningRevIsDeleted ? -1 : 1;
 
-  writeDoc(docInfo, winningRev, deleted, cb, true, delta, i);
+  var newRevIsDeleted = exports.isDeleted(docInfo.metadata, newRev);
+
+  writeDoc(docInfo, winningRev, winningRevIsDeleted, newRevIsDeleted,
+    true, delta, i, cb);
 };
 
 exports.processDocs = function processDocs(docInfos, api, fetchedDocs,
@@ -616,7 +623,8 @@ exports.processDocs = function processDocs(docInfos, api, fetchedDocs,
 
     var delta = deleted ? 0 : 1;
 
-    writeDoc(docInfo, winningRev, deleted, callback, false, delta, resultsIdx);
+    writeDoc(docInfo, winningRev, deleted, deleted, false,
+      delta, resultsIdx, callback);
   }
 
   var newEdits = opts.new_edits;

@@ -13,42 +13,55 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             console.log("App is ready!!");
             window.localStorage['cordovaready']='true';
 
-            Ads.getPlat().then(function(result){
-                if (result){
-                    //console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
-                    //console.log('La variable admob: '+JSON.stringify(AdMob));
-                    var options = {
-                        publisherID: result.banner,
-                        adSize: 'SMART_BANNER',
-                        bannerAtTop: true, // Set to true, to put banner at top
-                        overlap: false, // True to allow banner overlap webview
-                        offsetTopBar: true, // True to avoid ios7 status bar overlap
-                        isTesting: false, // receiving test to
-                        Autoshow: true
-                    };
-                    if(AdMob){
-                        if($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0){
+            var deviceId = '';
+            try {
+                deviceId = $cordovaDevice.getUUID();
+            } catch(e){
+                deviceId = 'browser';
+            };
+            window.localStorage['deviceId']=deviceId;
+            /*console.log('Comienzo de la seccion Ads');
+            console.log('Antes de entrar al Ad section: ' + $cordovaDevice.getVersion());
+            console.log('La validación es: ' + $cordovaDevice.getVersion()>="4.2");
+            version = $cordovaDevice.getVersion().split(".");
+            if(($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0) || ((version[0]>="4"))&&(version[1]>"1")) {
+                console.log('Mostrando ads');
+                Ads.getPlat().then(function (result) {
+                    if (result) {
+                        //console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
+                        //console.log('La variable admob: '+JSON.stringify(AdMob));
+                        var options = {
+                            publisherID: result.banner,
+                            adSize: 'SMART_BANNER',
+                            bannerAtTop: true, // Set to true, to put banner at top
+                            overlap: false, // True to allow banner overlap webview
+                            offsetTopBar: true, // True to avoid ios7 status bar overlap
+                            isTesting: false, // receiving test to
+                            Autoshow: true
+                        };
+                        if (AdMob) {
                             AdMob.createBanner({
-                                adId:result.banner,
+                                adId: result.banner,
                                 adSize: AdMob.SMART_BANNER,
                                 position: AdMob.AD_POSITION.TOP_CENTER,
                                 autoShow: true,
                                 isTesting: false,
-                                overlap: false});
-
+                                overlap: false
+                            });
                             AdMob.prepareInterstitial({
-                                adId:result.interstitial,
-                                isTesting:false,
-                                autoShow: true});
+                                adId: result.interstitial,
+                                isTesting: false,
+                                autoShow: true
+                            });
                             AdMob.showInterstitial();
                         }
                     }
-                }
-            }, function(error){
-                console.log('Error recuperando plataforma:'+ error);
-            });
+                }, function (error) {
+                    console.log('Error recuperando plataforma:' + error);
+                });
+            }
             //$cordovaGoogleAnalytics.debugMode();
-            $cordovaGoogleAnalytics.startTrackerWithId('UA-58872977-5');
+            $cordovaGoogleAnalytics.startTrackerWithId('UA-58872977-5');*/
             Cats.data();
         });
     })
@@ -119,7 +132,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
             },
             resolve:{
               comics:function(Cats){
-                res = Cats.getUltimos(0,20);
+                res = Cats.getUltimosFecha(0,20);
                 return res;
               }
             },

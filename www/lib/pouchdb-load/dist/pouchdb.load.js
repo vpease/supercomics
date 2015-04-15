@@ -18,7 +18,13 @@ function updateCheckpoint(db, id, checkpoint, returnValue) {
       return;
     }
     doc.last_seq = checkpoint;
-    return db.put(doc);
+    return db.put(doc)["catch"](function (err) {
+      if (err.status === 409) {
+        // retry; someone is trying to write a checkpoint simultaneously
+        return updateCheckpoint(db, id, checkpoint, returnValue);
+      }
+      throw err;
+    });
   });
 }
 /* istanbul ignore next */
@@ -91,6 +97,7 @@ Checkpointer.prototype.getCheckpoint = function () {
 };
 /* istanbul ignore next */
 module.exports = Checkpointer;
+
 },{"./utils":4}],2:[function(require,module,exports){
 'use strict';
 
@@ -145,8 +152,10 @@ exports.load = utils.toPromise(function (url, opts, callback) {
       }
 
       db.info().then(function (info) {
-        var src = new db.constructor(opts.proxy);
-        var target = new db.constructor(info.db_name);
+        var src = new db.constructor(opts.proxy,
+          utils.extend(true, {}, db.__opts, opts));
+        var target = new db.constructor(info.db_name,
+          utils.extend(true, {}, db.__opts, opts));
         var replIdOpts = {};
         if (opts.filter) {
           replIdOpts.filter = opts.filter;
@@ -1187,7 +1196,7 @@ function ajax(options, adapterCallback) {
       data = JSON.parse(data);
     }
 
-    if ((response.statusCode >= 200 && response.statusCode < 300)||(response.statusCode == 0 && body.length>0)) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
       onSuccess(data, response, callback);
     } else {
       if (options.binary) {
@@ -1628,7 +1637,7 @@ module.exports = function(options, callback) {
   }
 
   xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4) {
+    if (xhr.readyState !== 4) {
       return;
     }
 
@@ -1636,7 +1645,7 @@ module.exports = function(options, callback) {
       statusCode: xhr.status
     };
 
-    if ((xhr.status >= 200 && xhr.status < 300)||(xhr.status == 0 && xhr.responseText.length>0)) {
+    if (xhr.status >= 200 && xhr.status < 300) {
       var data;
       if (options.binary) {
         data = createBlob([xhr.response || ''], {

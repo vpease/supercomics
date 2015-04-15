@@ -21,16 +21,21 @@
             <div class="item item-divider">
                 <h2><p aria-multiline="true"><b>Descripción:</b> {{comic.descripcion}}</p></h2>
             </div>
-            <div class="item item-image-left" align="center">
-                <img ng-src='{{comic.tipo}}'>
+            <div class="item item-image-left">
+                <div class="row responsive-sm">
+                    <div>
+                        <img ng-src='{{comic.tipo}}'>
+                    </div>
+                    <div>
+                        <b>Número:</b> {{comic.numero}} de {{col.numeros}}</br>
+                        <b>Notas:</b> {{comic.notas}}</br>
+                        <b>Tags:</b> {{comic.tags}}</br>
+                        <b>Publicado:</b> {{comic.published}}</br>
+                        <b>Barcode:</b> {{comic.ean}}</br>
+                        <b>Precio:</b> {{comic.precio}} soles</br>
+                    </div>
+                </div>
 
-                <p>
-                    <b>Número:</b> {{comic.numero}} de {{col.numeros}}</br>
-                    <b>Tags:</b> {{comic.tags}}</br>
-                    <b>Publicado:</b> {{comic.published}}</br>
-                    <b>Barcode:</b> {{comic.ean}}</br>
-                    <b>Precio:</b> {{comic.precio}} soles</br>
-                </p>
                 <!--
                 <div class="row responsive-sm">
                     <div>

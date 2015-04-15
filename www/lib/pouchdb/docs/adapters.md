@@ -109,9 +109,9 @@ In the browser, PouchDB prefers IndexedDB, and falls back to WebSQL if IndexedDB
 </table>
 </div>
 
-{% include alert_start.html variant="info"%}
+{% include alert/start.html variant="info"%}
 Safari 7.1+ and iOS 8+ supposedly support IndexedDB, but their implementation has many bugs, so PouchDB currently ignores it.
-{% include alert_end.html%}
+{% include alert/end.html%}
 
 If you're ever curious which adapter is being used in a particular browser, you can use the following method:
 
@@ -139,9 +139,9 @@ The SQLite plugin is known to pass the PouchDB test suite on both iOS and Androi
 
 PouchDB also offers separate browser plugins that use backends other than IndexedDB and WebSQL. These plugins pass our test suite at 100%, but are not yet part of the official release due to build issues with Browserify. They also add a hefty footprint due to external dependencies, so take them with a grain of salt.
 
-{% include alert_start.html variant="warning"%}
+{% include alert/start.html variant="warning"%}
 Currently these plugins do not work with Browserify itself; you have to include them as separate scripts in your HTML page.
-{% include alert_end.html%}
+{% include alert/end.html%}
 
 **Downloads:**
 
@@ -162,9 +162,9 @@ If you need to support very old browsers, such as IE &le; 9.0 and Opera Mini, yo
 </script>
 ```
 
-{% include alert_start.html variant="warning"%}
+{% include alert/start.html variant="warning"%}
 The LocalStorage plugin should be considered highly experimental, and the underlying structure may change in the future.  Currently it stores all document IDs in memory, which works fine on small databases but may crash on larger databases.  You can follow <a href='https://github.com/No9/localstorage-down'>localstorage-down</a> to track our progress.
-{% include alert_end.html %}
+{% include alert/end.html %}
 
 #### Memory plugin
 
@@ -192,7 +192,7 @@ var pouch3 = new PouchDB('myOtherDB', {adapter: 'memory'});
 
 #### Alternative IndexedDB adapter
 
-We are currently experimenting with a [LevelDown][]-based IndexedDB adapter (using [level-js][]) which may eventually replace the current IndexedDB adapter.  If you would like to experiment with this, you may use the `pouchdb.idb-alt.js` plugin:
+We are currently experimenting with a [LevelDOWN][]-based IndexedDB adapter (using [level-js][]) which may eventually replace the current IndexedDB adapter.  If you would like to experiment with this, you may use the `pouchdb.idb-alt.js` plugin:
 
 ```html
 <script src="pouchdb.js"></script>
@@ -250,31 +250,43 @@ var pouch = new PouchDB('riak://localhost:8087/somebucket', {db: require('riakdo
 
 #### More LevelDOWN adapters
 
-There are many other LevelDOWN-based plugins &ndash; far too many to list here. You can find a [mostly-complete list on Github](https://github.com/rvagg/node-levelup/wiki/Modules) that includes implementations on top of MySQL, Windows Azure Table Storage, and SQLite.
+There are many other LevelDOWN-based plugins &ndash; far too many to list here. You can find a [mostly-complete list on Github](https://github.com/rvagg/node-levelup/wiki/Modules#storage-back-ends) that includes implementations on top of MySQL, Windows Azure Table Storage, and SQLite.
 
 
-{% include alert_start.html variant="warning"%}
+{% include alert/start.html variant="warning"%}
 We do not currently test against any LevelDOWN adapters other than LevelDB and MemDOWN, so the other backends should be considered experimental.
-{% include alert_end.html%}
+{% include alert/end.html%}
 
 {% include anchor.html title="PouchDB over HTTP" hash="pouchdb_over_http"%}
 
-In both the browser and in Node.js, PouchDB can also function as a straightforward API on top of any [CouchDB](https://couchdb.apache.org/)-compliant database, such as [IrisCouch](http://www.iriscouch.com/), [Cloudant](https://cloudant.com/), and [Couchbase Sync Gateway](http://docs.couchbase.com/sync-gateway/):
+In both the browser and in Node.js, PouchDB can also function as a straightforward API on top of any [CouchDB](https://couchdb.apache.org/)-compliant database:
 
 ```js
 var pouch = new PouchDB('http://my-site.com:5984/my-db');
 var securePouch = new PouchDB('https://my-secure-site.com:5984/my-secure-db');
 ```
 
-However, we do not currently claim to support any database at 100% fidelity except for CouchDB, so your mileage may vary when syncing with the others.  We will add databases to our supported list as we increase our test coverage.
+You can also sync to and from these databases to your local PouchDB.
 
-If you are ever unsure what to do, consider replicating from PouchDB to a CouchDB, then from that CouchDB to one of the other servers.
+Currently PouchDB has full support for:
 
+* CouchDB 1.x ([tested in CI](https://travis-ci.org/pouchdb/pouchdb))
+* [IrisCouch](http://www.iriscouch.com/) (same as 1.x)
+* [Couchappy](https://www.couchappy.com/) (same as 1.x)
+* CouchDB 2.x ([tested in CI](https://travis-ci.org/pouchdb/pouchdb))
+* [Cloudant](https://cloudant.com/) (roughly the same as 2.x)
+* [PouchDB Server](https://github.com/pouchdb/pouchdb-server) ([tested in CI](https://travis-ci.org/pouchdb/pouchdb))
+* [PouchDB Server --in-memory mode](https://github.com/pouchdb/pouchdb-server) ([tested in CI](https://travis-ci.org/pouchdb/pouchdb))
 
+[Couchbase Sync Gateway](http://docs.couchbase.com/sync-gateway/) support is [in progress](https://github.com/pouchdb/pouchdb/pull/3521). It will work, but you may run into issues, especially with [attachments](https://github.com/pouchdb/pouchdb/issues/2832). [Drupal 8](http://wearepropeople.com/blog/a-content-staging-solution-for-drupal-8-and-more) has also announced support for PouchDB, and there is [rcouch](https://github.com/rcouch/rcouch) as well, but these are both untested by PouchDB.
+
+If you are ever unsure about a server, consider replicating from PouchDB to CouchDB, then from that CouchDB to the other server.
 
 #### PouchDB Server
 
-[PouchDB Server](https://github.com/pouchdb/pouchdb-server) is a standalone REST server that implements the CouchDB API, while using a LevelDB-based PouchDB under the hood.  PouchDB Server passes our unit test suite at 100%, but be aware that it is not as full-featured or battle-tested as CouchDB.
+[PouchDB Server](https://github.com/pouchdb/pouchdb-server) is a standalone REST server that implements the CouchDB API, while using a LevelDB-based PouchDB under the hood. It also supports an `--in-memory` mode and any [LevelDOWN][] adapter, which you may find handy.
+
+PouchDB Server passes the PouchDB test suite at 100%, but be aware that it is not as full-featured or battle-tested as CouchDB.
 
 #### PouchDB Express
 

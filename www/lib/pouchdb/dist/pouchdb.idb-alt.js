@@ -1,4 +1,4 @@
-//    PouchDB alternative IndexedDB plugin 3.3.1
+//    PouchDB alternative IndexedDB plugin 3.4.0
 //    Based on level.js: https://github.com/maxogden/level.js
 //    
 //    (c) 2012-2015 Dale Harvey and the PouchDB team
@@ -594,22 +594,22 @@ function LevelPouch(opts, callback) {
       return complete();
     }
 
-    function writeDoc(doc, winningRev, deleted, callback2,
-                      isUpdate, delta, index) {
+    function writeDoc(docInfo, winningRev, winningRevIsDeleted, newRevIsDeleted,
+                      isUpdate, delta, resultsIdx, callback2) {
       docCountDelta += delta;
 
       var err = null;
       var recv = 0;
 
-      doc.data._id = doc.metadata.id;
-      doc.data._rev = doc.metadata.rev;
+      docInfo.data._id = docInfo.metadata.id;
+      docInfo.data._rev = docInfo.metadata.rev;
 
-      if (deleted) {
-        doc.data._deleted = true;
+      if (newRevIsDeleted) {
+        docInfo.data._deleted = true;
       }
 
-      var attachments = doc.data._attachments ?
-        Object.keys(doc.data._attachments) :
+      var attachments = docInfo.data._attachments ?
+        Object.keys(docInfo.data._attachments) :
         [];
 
       function attachmentSaved(attachmentErr) {
@@ -640,12 +640,12 @@ function LevelPouch(opts, callback) {
 
       for (var i = 0; i < attachments.length; i++) {
         var key = attachments[i];
-        var att = doc.data._attachments[key];
+        var att = docInfo.data._attachments[key];
 
         if (att.stub) {
           // still need to update the refs mapping
-          var id = doc.data._id;
-          var rev = doc.data._rev;
+          var id = docInfo.data._id;
+          var rev = docInfo.data._rev;
           saveAttachmentRefs(id, rev, att.digest, attachmentSaved);
           continue;
         }
@@ -662,44 +662,45 @@ function LevelPouch(opts, callback) {
           data = att.data;
         } else { // browser
           utils.readAsBinaryString(att.data,
-            onLoadEnd(doc, key, attachmentSaved));
+            onLoadEnd(docInfo, key, attachmentSaved));
           continue;
         }
         utils.MD5(data).then(
-          onMD5Load(doc, key, data, attachmentSaved)
+          onMD5Load(docInfo, key, data, attachmentSaved)
         );
       }
 
       function finish() {
-        var seq = doc.metadata.rev_map[doc.metadata.rev];
+        var seq = docInfo.metadata.rev_map[docInfo.metadata.rev];
         if (seq) {
           // check that there aren't any existing revisions with the same
           // revision id, else we shouldn't do anything
           return callback2();
         }
         seq = ++newUpdateSeq;
-        doc.metadata.rev_map[doc.metadata.rev] = doc.metadata.seq = seq;
+        docInfo.metadata.rev_map[docInfo.metadata.rev] =
+          docInfo.metadata.seq = seq;
         var seqKey = formatSeq(seq);
         var batch = [{
           key: seqKey,
-          value: doc.data,
+          value: docInfo.data,
           prefix: stores.bySeqStore,
           type: 'put',
           valueEncoding: 'json'
         }, {
-          key: doc.metadata.id,
-          value: doc.metadata,
+          key: docInfo.metadata.id,
+          value: docInfo.metadata,
           prefix: stores.docStore,
           type: 'put',
           valueEncoding: safeJsonEncoding
         }];
         txn.batch(batch);
-        results[index] = {
+        results[resultsIdx] = {
           ok: true,
-          id: doc.metadata.id,
+          id: docInfo.metadata.id,
           rev: winningRev
         };
-        fetchedDocs.set(doc.metadata.id, doc.metadata);
+        fetchedDocs.set(docInfo.metadata.id, docInfo.metadata);
         callback2();
       }
 
@@ -1918,49 +1919,6 @@ var Md5 = _dereq_('spark-md5');
 var setImmediateShim = global.setImmediate || global.setTimeout;
 var MD5_CHUNK_SIZE = 32768;
 
-function sliceShim(arrayBuffer, begin, end) {
-  if (typeof arrayBuffer.slice === 'function') {
-    if (!begin && !end) {
-      return arrayBuffer.slice();
-    } else if (!end) {
-      return arrayBuffer.slice(begin);
-    } else {
-      return arrayBuffer.slice(begin, end);
-    }
-  }
-  //
-  // shim for IE courtesy of http://stackoverflow.com/a/21440217
-  //
-
-  //If `begin`/`end` is unspecified, Chrome assumes 0, so we do the same
-  //Chrome also converts the values to integers via flooring
-  begin = Math.floor(begin || 0);
-  end = Math.floor(end || 0);
-
-  var len = arrayBuffer.byteLength;
-
-  //If either `begin` or `end` is negative, it refers to an
-  //index from the end of the array, as opposed to from the beginning.
-  //The range specified by the `begin` and `end` values is clamped to the
-  //valid index range for the current array.
-  begin = begin < 0 ? Math.max(begin + len, 0) : Math.min(len, begin);
-  end = end < 0 ? Math.max(end + len, 0) : Math.min(len, end);
-
-  //If the computed length of the new ArrayBuffer would be negative, it
-  //is clamped to zero.
-  if (end - begin <= 0) {
-    return new ArrayBuffer(0);
-  }
-
-  var result = new ArrayBuffer(end - begin);
-  var resultBytes = new Uint8Array(result);
-  var sourceBytes = new Uint8Array(arrayBuffer, begin, end - begin);
-
-  resultBytes.set(sourceBytes);
-
-  return result;
-}
-
 // convert a 64-bit int to a binary string
 function intToString(int) {
   var bytes = [
@@ -1984,6 +1942,23 @@ function rawToBase64(raw) {
   return btoa(res);
 }
 
+function appendBuffer(buffer, data, start, end) {
+  if (start > 0 || end < data.byteLength) {
+    // only create a subarray if we really need to
+    data = new Uint8Array(data, start,
+      Math.min(end, data.byteLength) - start);
+  }
+  buffer.append(data);
+}
+
+function appendString(buffer, data, start, end) {
+  if (start > 0 || end < data.length) {
+    // only create a substring if we really need to
+    data = data.substring(start, end);
+  }
+  buffer.appendBinary(data);
+}
+
 module.exports = function (data, callback) {
   if (!process.browser) {
     var base64 = crypto.createHash('md5').update(data).digest('base64');
@@ -1997,13 +1972,7 @@ module.exports = function (data, callback) {
   var currentChunk = 0;
   var buffer = inputIsString ? new Md5() : new Md5.ArrayBuffer();
 
-  function append(buffer, data, start, end) {
-    if (inputIsString) {
-      buffer.appendBinary(data.substring(start, end));
-    } else {
-      buffer.append(sliceShim(data, start, end));
-    }
-  }
+  var append = inputIsString ? appendString : appendBuffer;
 
   function loadNextChunk() {
     var start = currentChunk * chunkSize;
@@ -3083,6 +3052,11 @@ exports.filterChange = function filterChange(opts) {
   req.query = opts.query_params;
 
   return function filter(change) {
+    if (!change.doc) {
+      // CSG sends events on the changes feed that don't have documents,
+      // this hack makes a whole lot of existing code robust.
+      change.doc = {};
+    }
     if (opts.filter && hasFilter && !opts.filter.call(this, change.doc, req)) {
       return false;
     }
@@ -3529,13 +3503,16 @@ exports.updateDoc = function updateDoc(prev, docInfo, results,
     return cb();
   }
 
-  var previouslyDeleted = exports.isDeleted(prev);
+  // TODO: some of these can be pre-calculated, but it's safer to just
+  // call merge.winningRev() and exports.isDeleted() all over again
+  var previousWinningRev = merge.winningRev(prev);
+  var previouslyDeleted = exports.isDeleted(prev, previousWinningRev);
   var deleted = exports.isDeleted(docInfo.metadata);
   var isRoot = /^1-/.test(docInfo.metadata.rev);
 
   if (previouslyDeleted && !deleted && newEdits && isRoot) {
     var newDoc = docInfo.data;
-    newDoc._rev = merge.winningRev(prev);
+    newDoc._rev = previousWinningRev;
     newDoc._id = docInfo.metadata.id;
     docInfo = exports.parseDoc(newDoc, newEdits);
   }
@@ -3560,18 +3537,17 @@ exports.updateDoc = function updateDoc(prev, docInfo, results,
 
   // recalculate
   var winningRev = merge.winningRev(docInfo.metadata);
-  deleted = exports.isDeleted(docInfo.metadata, winningRev);
+  var winningRevIsDeleted = exports.isDeleted(docInfo.metadata, winningRev);
 
-  var delta = 0;
-  if (newEdits || winningRev === newRev) {
-    // if newEdits==false and we're pushing existing revisions,
-    // then the only thing that matters is whether this revision
-    // is the winning one, and thus replaces an old one
-    delta = (previouslyDeleted === deleted) ? 0 :
-      previouslyDeleted < deleted ? -1 : 1;
-  }
+  // calculate the total number of documents that were added/removed,
+  // from the perspective of total_rows/doc_count
+  var delta = (previouslyDeleted === winningRevIsDeleted) ? 0 :
+      previouslyDeleted < winningRevIsDeleted ? -1 : 1;
 
-  writeDoc(docInfo, winningRev, deleted, cb, true, delta, i);
+  var newRevIsDeleted = exports.isDeleted(docInfo.metadata, newRev);
+
+  writeDoc(docInfo, winningRev, winningRevIsDeleted, newRevIsDeleted,
+    true, delta, i, cb);
 };
 
 exports.processDocs = function processDocs(docInfos, api, fetchedDocs,
@@ -3593,7 +3569,8 @@ exports.processDocs = function processDocs(docInfos, api, fetchedDocs,
 
     var delta = deleted ? 0 : 1;
 
-    writeDoc(docInfo, winningRev, deleted, callback, false, delta, resultsIdx);
+    writeDoc(docInfo, winningRev, deleted, deleted, false,
+      delta, resultsIdx, callback);
   }
 
   var newEdits = opts.new_edits;
@@ -3816,7 +3793,7 @@ function argsArray(fun) {
 
 },{}],19:[function(_dereq_,module,exports){
 module.exports=_dereq_(18)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/lib/_empty.js":18}],20:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/lib/_empty.js":18}],20:[function(_dereq_,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -8964,13 +8941,15 @@ module.exports = function(val, options){
  */
 
 function parse(str) {
-  var match = /^((?:\d+)?\.?\d+) *(ms|seconds?|s|minutes?|m|hours?|h|days?|d|years?|y)?$/i.exec(str);
+  var match = /^((?:\d+)?\.?\d+) *(milliseconds?|msecs?|ms|seconds?|secs?|s|minutes?|mins?|m|hours?|hrs?|h|days?|d|years?|yrs?|y)?$/i.exec(str);
   if (!match) return;
   var n = parseFloat(match[1]);
   var type = (match[2] || 'ms').toLowerCase();
   switch (type) {
     case 'years':
     case 'year':
+    case 'yrs':
+    case 'yr':
     case 'y':
       return n * y;
     case 'days':
@@ -8979,16 +8958,26 @@ function parse(str) {
       return n * d;
     case 'hours':
     case 'hour':
+    case 'hrs':
+    case 'hr':
     case 'h':
       return n * h;
     case 'minutes':
     case 'minute':
+    case 'mins':
+    case 'min':
     case 'm':
       return n * m;
     case 'seconds':
     case 'second':
+    case 'secs':
+    case 'sec':
     case 's':
       return n * s;
+    case 'milliseconds':
+    case 'millisecond':
+    case 'msecs':
+    case 'msec':
     case 'ms':
       return n;
   }
@@ -11953,11 +11942,11 @@ var satifies = exports.satisfies = function (key, range) {
 
 },{}],69:[function(_dereq_,module,exports){
 module.exports=_dereq_(57)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/has-keys.js":57}],70:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/has-keys.js":57}],70:[function(_dereq_,module,exports){
 arguments[4][58][0].apply(exports,arguments)
-},{"./has-keys":69,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/index.js":58,"object-keys":71}],71:[function(_dereq_,module,exports){
+},{"./has-keys":69,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/index.js":58,"object-keys":71}],71:[function(_dereq_,module,exports){
 arguments[4][60][0].apply(exports,arguments)
-},{"./shim":74,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/index.js":60}],72:[function(_dereq_,module,exports){
+},{"./shim":74,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/index.js":60}],72:[function(_dereq_,module,exports){
 
 var hasOwn = Object.prototype.hasOwnProperty;
 var toString = Object.prototype.toString;
@@ -14491,11 +14480,11 @@ module.exports = DeferredLevelDOWN
 }).call(this,_dereq_('_process'),_dereq_("buffer").Buffer)
 },{"_process":27,"abstract-leveldown":88,"buffer":20,"util":42}],86:[function(_dereq_,module,exports){
 module.exports=_dereq_(49)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-chained-batch.js":49,"_process":27}],87:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-chained-batch.js":49,"_process":27}],87:[function(_dereq_,module,exports){
 module.exports=_dereq_(50)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-iterator.js":50,"_process":27}],88:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-iterator.js":50,"_process":27}],88:[function(_dereq_,module,exports){
 module.exports=_dereq_(51)
-},{"./abstract-chained-batch":86,"./abstract-iterator":87,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-leveldown.js":51,"_process":27,"buffer":20,"xtend":101}],89:[function(_dereq_,module,exports){
+},{"./abstract-chained-batch":86,"./abstract-iterator":87,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/abstract-leveldown.js":51,"_process":27,"buffer":20,"xtend":101}],89:[function(_dereq_,module,exports){
 var prr = _dereq_('prr')
 
 function init (type, message, cause) {
@@ -14554,432 +14543,314 @@ module.exports = function (errno) {
 
 },{"prr":91}],90:[function(_dereq_,module,exports){
 var all = module.exports.all = [
- {
-  "errno": -1,
-  "code": "UNKNOWN",
-  "description": "unknown error"
- },
- {
-  "errno": 0,
-  "code": "OK",
-  "description": "success"
- },
- {
-  "errno": 1,
-  "code": "EOF",
-  "description": "end of file"
- },
- {
-  "errno": 2,
-  "code": "EADDRINFO",
-  "description": "getaddrinfo error"
- },
- {
-  "errno": 3,
-  "code": "EACCES",
-  "description": "permission denied"
- },
- {
-  "errno": 4,
-  "code": "EAGAIN",
-  "description": "resource temporarily unavailable"
- },
- {
-  "errno": 5,
-  "code": "EADDRINUSE",
-  "description": "address already in use"
- },
- {
-  "errno": 6,
-  "code": "EADDRNOTAVAIL",
-  "description": "address not available"
- },
- {
-  "errno": 7,
-  "code": "EAFNOSUPPORT",
-  "description": "address family not supported"
- },
- {
-  "errno": 8,
-  "code": "EALREADY",
-  "description": "connection already in progress"
- },
- {
-  "errno": 9,
-  "code": "EBADF",
-  "description": "bad file descriptor"
- },
- {
-  "errno": 10,
-  "code": "EBUSY",
-  "description": "resource busy or locked"
- },
- {
-  "errno": 11,
-  "code": "ECONNABORTED",
-  "description": "software caused connection abort"
- },
- {
-  "errno": 12,
-  "code": "ECONNREFUSED",
-  "description": "connection refused"
- },
- {
-  "errno": 13,
-  "code": "ECONNRESET",
-  "description": "connection reset by peer"
- },
- {
-  "errno": 14,
-  "code": "EDESTADDRREQ",
-  "description": "destination address required"
- },
- {
-  "errno": 15,
-  "code": "EFAULT",
-  "description": "bad address in system call argument"
- },
- {
-  "errno": 16,
-  "code": "EHOSTUNREACH",
-  "description": "host is unreachable"
- },
- {
-  "errno": 17,
-  "code": "EINTR",
-  "description": "interrupted system call"
- },
- {
-  "errno": 18,
-  "code": "EINVAL",
-  "description": "invalid argument"
- },
- {
-  "errno": 19,
-  "code": "EISCONN",
-  "description": "socket is already connected"
- },
- {
-  "errno": 20,
-  "code": "EMFILE",
-  "description": "too many open files"
- },
- {
-  "errno": 21,
-  "code": "EMSGSIZE",
-  "description": "message too long"
- },
- {
-  "errno": 22,
-  "code": "ENETDOWN",
-  "description": "network is down"
- },
- {
-  "errno": 23,
-  "code": "ENETUNREACH",
-  "description": "network is unreachable"
- },
- {
-  "errno": 24,
-  "code": "ENFILE",
-  "description": "file table overflow"
- },
- {
-  "errno": 25,
-  "code": "ENOBUFS",
-  "description": "no buffer space available"
- },
- {
-  "errno": 26,
-  "code": "ENOMEM",
-  "description": "not enough memory"
- },
- {
-  "errno": 27,
-  "code": "ENOTDIR",
-  "description": "not a directory"
- },
- {
-  "errno": 28,
-  "code": "EISDIR",
-  "description": "illegal operation on a directory"
- },
- {
-  "errno": 29,
-  "code": "ENONET",
-  "description": "machine is not on the network"
- },
- {
-  "errno": 31,
-  "code": "ENOTCONN",
-  "description": "socket is not connected"
- },
- {
-  "errno": 32,
-  "code": "ENOTSOCK",
-  "description": "socket operation on non-socket"
- },
- {
-  "errno": 33,
-  "code": "ENOTSUP",
-  "description": "operation not supported on socket"
- },
- {
-  "errno": 34,
-  "code": "ENOENT",
-  "description": "no such file or directory"
- },
- {
-  "errno": 35,
-  "code": "ENOSYS",
-  "description": "function not implemented"
- },
- {
-  "errno": 36,
-  "code": "EPIPE",
-  "description": "broken pipe"
- },
- {
-  "errno": 37,
-  "code": "EPROTO",
-  "description": "protocol error"
- },
- {
-  "errno": 38,
-  "code": "EPROTONOSUPPORT",
-  "description": "protocol not supported"
- },
- {
-  "errno": 39,
-  "code": "EPROTOTYPE",
-  "description": "protocol wrong type for socket"
- },
- {
-  "errno": 40,
-  "code": "ETIMEDOUT",
-  "description": "connection timed out"
- },
- {
-  "errno": 41,
-  "code": "ECHARSET",
-  "description": "invalid Unicode character"
- },
- {
-  "errno": 42,
-  "code": "EAIFAMNOSUPPORT",
-  "description": "address family for hostname not supported"
- },
- {
-  "errno": 44,
-  "code": "EAISERVICE",
-  "description": "servname not supported for ai_socktype"
- },
- {
-  "errno": 45,
-  "code": "EAISOCKTYPE",
-  "description": "ai_socktype not supported"
- },
- {
-  "errno": 46,
-  "code": "ESHUTDOWN",
-  "description": "cannot send after transport endpoint shutdown"
- },
- {
-  "errno": 47,
-  "code": "EEXIST",
-  "description": "file already exists"
- },
- {
-  "errno": 48,
-  "code": "ESRCH",
-  "description": "no such process"
- },
- {
-  "errno": 49,
-  "code": "ENAMETOOLONG",
-  "description": "name too long"
- },
- {
-  "errno": 50,
-  "code": "EPERM",
-  "description": "operation not permitted"
- },
- {
-  "errno": 51,
-  "code": "ELOOP",
-  "description": "too many symbolic links encountered"
- },
- {
-  "errno": 52,
-  "code": "EXDEV",
-  "description": "cross-device link not permitted"
- },
- {
-  "errno": 53,
-  "code": "ENOTEMPTY",
-  "description": "directory not empty"
- },
- {
-  "errno": 54,
-  "code": "ENOSPC",
-  "description": "no space left on device"
- },
- {
-  "errno": 55,
-  "code": "EIO",
-  "description": "i/o error"
- },
- {
-  "errno": 56,
-  "code": "EROFS",
-  "description": "read-only file system"
- },
- {
-  "errno": 57,
-  "code": "ENODEV",
-  "description": "no such device"
- },
- {
-  "errno": 58,
-  "code": "ESPIPE",
-  "description": "invalid seek"
- },
- {
-  "errno": 59,
-  "code": "ECANCELED",
-  "description": "operation canceled"
- }
+  {
+    errno: -1,
+    code: 'UNKNOWN',
+    description: 'unknown error'
+  },
+  {
+    errno: 0,
+    code: 'OK',
+    description: 'success'
+  },
+  {
+    errno: 1,
+    code: 'EOF',
+    description: 'end of file'
+  },
+  {
+    errno: 2,
+    code: 'EADDRINFO',
+    description: 'getaddrinfo error'
+  },
+  {
+    errno: 3,
+    code: 'EACCES',
+    description: 'permission denied'
+  },
+  {
+    errno: 4,
+    code: 'EAGAIN',
+    description: 'resource temporarily unavailable'
+  },
+  {
+    errno: 5,
+    code: 'EADDRINUSE',
+    description: 'address already in use'
+  },
+  {
+    errno: 6,
+    code: 'EADDRNOTAVAIL',
+    description: 'address not available'
+  },
+  {
+    errno: 7,
+    code: 'EAFNOSUPPORT',
+    description: 'address family not supported'
+  },
+  {
+    errno: 8,
+    code: 'EALREADY',
+    description: 'connection already in progress'
+  },
+  {
+    errno: 9,
+    code: 'EBADF',
+    description: 'bad file descriptor'
+  },
+  {
+    errno: 10,
+    code: 'EBUSY',
+    description: 'resource busy or locked'
+  },
+  {
+    errno: 11,
+    code: 'ECONNABORTED',
+    description: 'software caused connection abort'
+  },
+  {
+    errno: 12,
+    code: 'ECONNREFUSED',
+    description: 'connection refused'
+  },
+  {
+    errno: 13,
+    code: 'ECONNRESET',
+    description: 'connection reset by peer'
+  },
+  {
+    errno: 14,
+    code: 'EDESTADDRREQ',
+    description: 'destination address required'
+  },
+  {
+    errno: 15,
+    code: 'EFAULT',
+    description: 'bad address in system call argument'
+  },
+  {
+    errno: 16,
+    code: 'EHOSTUNREACH',
+    description: 'host is unreachable'
+  },
+  {
+    errno: 17,
+    code: 'EINTR',
+    description: 'interrupted system call'
+  },
+  {
+    errno: 18,
+    code: 'EINVAL',
+    description: 'invalid argument'
+  },
+  {
+    errno: 19,
+    code: 'EISCONN',
+    description: 'socket is already connected'
+  },
+  {
+    errno: 20,
+    code: 'EMFILE',
+    description: 'too many open files'
+  },
+  {
+    errno: 21,
+    code: 'EMSGSIZE',
+    description: 'message too long'
+  },
+  {
+    errno: 22,
+    code: 'ENETDOWN',
+    description: 'network is down'
+  },
+  {
+    errno: 23,
+    code: 'ENETUNREACH',
+    description: 'network is unreachable'
+  },
+  {
+    errno: 24,
+    code: 'ENFILE',
+    description: 'file table overflow'
+  },
+  {
+    errno: 25,
+    code: 'ENOBUFS',
+    description: 'no buffer space available'
+  },
+  {
+    errno: 26,
+    code: 'ENOMEM',
+    description: 'not enough memory'
+  },
+  {
+    errno: 27,
+    code: 'ENOTDIR',
+    description: 'not a directory'
+  },
+  {
+    errno: 28,
+    code: 'EISDIR',
+    description: 'illegal operation on a directory'
+  },
+  {
+    errno: 29,
+    code: 'ENONET',
+    description: 'machine is not on the network'
+  },
+  {
+    errno: 31,
+    code: 'ENOTCONN',
+    description: 'socket is not connected'
+  },
+  {
+    errno: 32,
+    code: 'ENOTSOCK',
+    description: 'socket operation on non-socket'
+  },
+  {
+    errno: 33,
+    code: 'ENOTSUP',
+    description: 'operation not supported on socket'
+  },
+  {
+    errno: 34,
+    code: 'ENOENT',
+    description: 'no such file or directory'
+  },
+  {
+    errno: 35,
+    code: 'ENOSYS',
+    description: 'function not implemented'
+  },
+  {
+    errno: 36,
+    code: 'EPIPE',
+    description: 'broken pipe'
+  },
+  {
+    errno: 37,
+    code: 'EPROTO',
+    description: 'protocol error'
+  },
+  {
+    errno: 38,
+    code: 'EPROTONOSUPPORT',
+    description: 'protocol not supported'
+  },
+  {
+    errno: 39,
+    code: 'EPROTOTYPE',
+    description: 'protocol wrong type for socket'
+  },
+  {
+    errno: 40,
+    code: 'ETIMEDOUT',
+    description: 'connection timed out'
+  },
+  {
+    errno: 41,
+    code: 'ECHARSET',
+    description: 'invalid Unicode character'
+  },
+  {
+    errno: 42,
+    code: 'EAIFAMNOSUPPORT',
+    description: 'address family for hostname not supported'
+  },
+  {
+    errno: 44,
+    code: 'EAISERVICE',
+    description: 'servname not supported for ai_socktype'
+  },
+  {
+    errno: 45,
+    code: 'EAISOCKTYPE',
+    description: 'ai_socktype not supported'
+  },
+  {
+    errno: 46,
+    code: 'ESHUTDOWN',
+    description: 'cannot send after transport endpoint shutdown'
+  },
+  {
+    errno: 47,
+    code: 'EEXIST',
+    description: 'file already exists'
+  },
+  {
+    errno: 48,
+    code: 'ESRCH',
+    description: 'no such process'
+  },
+  {
+    errno: 49,
+    code: 'ENAMETOOLONG',
+    description: 'name too long'
+  },
+  {
+    errno: 50,
+    code: 'EPERM',
+    description: 'operation not permitted'
+  },
+  {
+    errno: 51,
+    code: 'ELOOP',
+    description: 'too many symbolic links encountered'
+  },
+  {
+    errno: 52,
+    code: 'EXDEV',
+    description: 'cross-device link not permitted'
+  },
+  {
+    errno: 53,
+    code: 'ENOTEMPTY',
+    description: 'directory not empty'
+  },
+  {
+    errno: 54,
+    code: 'ENOSPC',
+    description: 'no space left on device'
+  },
+  {
+    errno: 55,
+    code: 'EIO',
+    description: 'i/o error'
+  },
+  {
+    errno: 56,
+    code: 'EROFS',
+    description: 'read-only file system'
+  },
+  {
+    errno: 57,
+    code: 'ENODEV',
+    description: 'no such device'
+  },
+  {
+    errno: 58,
+    code: 'ESPIPE',
+    description: 'invalid seek'
+  },
+  {
+    errno: 59,
+    code: 'ECANCELED',
+    description: 'operation canceled'
+  }
 ]
 
+module.exports.errno = {}
+module.exports.code = {}
 
-module.exports.errno = {
-    '-1': all[0]
-  , '0': all[1]
-  , '1': all[2]
-  , '2': all[3]
-  , '3': all[4]
-  , '4': all[5]
-  , '5': all[6]
-  , '6': all[7]
-  , '7': all[8]
-  , '8': all[9]
-  , '9': all[10]
-  , '10': all[11]
-  , '11': all[12]
-  , '12': all[13]
-  , '13': all[14]
-  , '14': all[15]
-  , '15': all[16]
-  , '16': all[17]
-  , '17': all[18]
-  , '18': all[19]
-  , '19': all[20]
-  , '20': all[21]
-  , '21': all[22]
-  , '22': all[23]
-  , '23': all[24]
-  , '24': all[25]
-  , '25': all[26]
-  , '26': all[27]
-  , '27': all[28]
-  , '28': all[29]
-  , '29': all[30]
-  , '31': all[31]
-  , '32': all[32]
-  , '33': all[33]
-  , '34': all[34]
-  , '35': all[35]
-  , '36': all[36]
-  , '37': all[37]
-  , '38': all[38]
-  , '39': all[39]
-  , '40': all[40]
-  , '41': all[41]
-  , '42': all[42]
-  , '44': all[43]
-  , '45': all[44]
-  , '46': all[45]
-  , '47': all[46]
-  , '48': all[47]
-  , '49': all[48]
-  , '50': all[49]
-  , '51': all[50]
-  , '52': all[51]
-  , '53': all[52]
-  , '54': all[53]
-  , '55': all[54]
-  , '56': all[55]
-  , '57': all[56]
-  , '58': all[57]
-  , '59': all[58]
-}
+all.forEach(function (error) {
+  module.exports.errno[error.errno] = error
+  module.exports.code[error.code] = error
+})
 
-
-module.exports.code = {
-    'UNKNOWN': all[0]
-  , 'OK': all[1]
-  , 'EOF': all[2]
-  , 'EADDRINFO': all[3]
-  , 'EACCES': all[4]
-  , 'EAGAIN': all[5]
-  , 'EADDRINUSE': all[6]
-  , 'EADDRNOTAVAIL': all[7]
-  , 'EAFNOSUPPORT': all[8]
-  , 'EALREADY': all[9]
-  , 'EBADF': all[10]
-  , 'EBUSY': all[11]
-  , 'ECONNABORTED': all[12]
-  , 'ECONNREFUSED': all[13]
-  , 'ECONNRESET': all[14]
-  , 'EDESTADDRREQ': all[15]
-  , 'EFAULT': all[16]
-  , 'EHOSTUNREACH': all[17]
-  , 'EINTR': all[18]
-  , 'EINVAL': all[19]
-  , 'EISCONN': all[20]
-  , 'EMFILE': all[21]
-  , 'EMSGSIZE': all[22]
-  , 'ENETDOWN': all[23]
-  , 'ENETUNREACH': all[24]
-  , 'ENFILE': all[25]
-  , 'ENOBUFS': all[26]
-  , 'ENOMEM': all[27]
-  , 'ENOTDIR': all[28]
-  , 'EISDIR': all[29]
-  , 'ENONET': all[30]
-  , 'ENOTCONN': all[31]
-  , 'ENOTSOCK': all[32]
-  , 'ENOTSUP': all[33]
-  , 'ENOENT': all[34]
-  , 'ENOSYS': all[35]
-  , 'EPIPE': all[36]
-  , 'EPROTO': all[37]
-  , 'EPROTONOSUPPORT': all[38]
-  , 'EPROTOTYPE': all[39]
-  , 'ETIMEDOUT': all[40]
-  , 'ECHARSET': all[41]
-  , 'EAIFAMNOSUPPORT': all[42]
-  , 'EAISERVICE': all[43]
-  , 'EAISOCKTYPE': all[44]
-  , 'ESHUTDOWN': all[45]
-  , 'EEXIST': all[46]
-  , 'ESRCH': all[47]
-  , 'ENAMETOOLONG': all[48]
-  , 'EPERM': all[49]
-  , 'ELOOP': all[50]
-  , 'EXDEV': all[51]
-  , 'ENOTEMPTY': all[52]
-  , 'ENOSPC': all[53]
-  , 'EIO': all[54]
-  , 'EROFS': all[55]
-  , 'ENODEV': all[56]
-  , 'ESPIPE': all[57]
-  , 'ECANCELED': all[58]
-}
-
-
-module.exports.custom = _dereq_("./custom")(module.exports)
+module.exports.custom = _dereq_('./custom')(module.exports)
 module.exports.create = module.exports.custom.createError
+
 },{"./custom":89}],91:[function(_dereq_,module,exports){
 /*!
   * prr
@@ -15046,25 +14917,25 @@ module.exports.create = module.exports.custom.createError
 })
 },{}],92:[function(_dereq_,module,exports){
 module.exports=_dereq_(29)
-},{"./_stream_readable":94,"./_stream_writable":96,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_duplex.js":29,"_process":27,"core-util-is":97,"inherits":47}],93:[function(_dereq_,module,exports){
+},{"./_stream_readable":94,"./_stream_writable":96,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_duplex.js":29,"_process":27,"core-util-is":97,"inherits":47}],93:[function(_dereq_,module,exports){
 module.exports=_dereq_(30)
-},{"./_stream_transform":95,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_passthrough.js":30,"core-util-is":97,"inherits":47}],94:[function(_dereq_,module,exports){
+},{"./_stream_transform":95,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_passthrough.js":30,"core-util-is":97,"inherits":47}],94:[function(_dereq_,module,exports){
 module.exports=_dereq_(31)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_readable.js":31,"_process":27,"buffer":20,"core-util-is":97,"events":24,"inherits":47,"isarray":98,"stream":39,"string_decoder/":99}],95:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_readable.js":31,"_process":27,"buffer":20,"core-util-is":97,"events":24,"inherits":47,"isarray":98,"stream":39,"string_decoder/":99}],95:[function(_dereq_,module,exports){
 module.exports=_dereq_(32)
-},{"./_stream_duplex":92,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_transform.js":32,"core-util-is":97,"inherits":47}],96:[function(_dereq_,module,exports){
+},{"./_stream_duplex":92,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_transform.js":32,"core-util-is":97,"inherits":47}],96:[function(_dereq_,module,exports){
 module.exports=_dereq_(33)
-},{"./_stream_duplex":92,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_writable.js":33,"_process":27,"buffer":20,"core-util-is":97,"inherits":47,"stream":39}],97:[function(_dereq_,module,exports){
+},{"./_stream_duplex":92,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_writable.js":33,"_process":27,"buffer":20,"core-util-is":97,"inherits":47,"stream":39}],97:[function(_dereq_,module,exports){
 module.exports=_dereq_(34)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/node_modules/core-util-is/lib/util.js":34,"buffer":20}],98:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/node_modules/core-util-is/lib/util.js":34,"buffer":20}],98:[function(_dereq_,module,exports){
 module.exports=_dereq_(25)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/isarray/index.js":25}],99:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/isarray/index.js":25}],99:[function(_dereq_,module,exports){
 module.exports=_dereq_(40)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/string_decoder/index.js":40,"buffer":20}],100:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/string_decoder/index.js":40,"buffer":20}],100:[function(_dereq_,module,exports){
 module.exports=_dereq_(36)
-},{"./lib/_stream_duplex.js":92,"./lib/_stream_passthrough.js":93,"./lib/_stream_readable.js":94,"./lib/_stream_transform.js":95,"./lib/_stream_writable.js":96,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/readable.js":36,"stream":39}],101:[function(_dereq_,module,exports){
+},{"./lib/_stream_duplex.js":92,"./lib/_stream_passthrough.js":93,"./lib/_stream_readable.js":94,"./lib/_stream_transform.js":95,"./lib/_stream_writable.js":96,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/readable.js":36,"stream":39}],101:[function(_dereq_,module,exports){
 module.exports=_dereq_(52)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/node_modules/xtend/index.js":52}],102:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/abstract-leveldown/node_modules/xtend/index.js":52}],102:[function(_dereq_,module,exports){
 module.exports={
   "name": "levelup",
   "description": "Fast & simple storage - a Node.js-style LevelDB wrapper",
@@ -15189,31 +15060,13 @@ module.exports={
     "alltests": "npm test && npm run-script functionaltests"
   },
   "license": "MIT",
-  "gitHead": "213e989e2b75273e2b44c23f84f95e35bff7ea11",
+  "readme": "LevelUP\n=======\n\n![LevelDB Logo](https://0.gravatar.com/avatar/a498b122aecb7678490a38bb593cc12d)\n\n**Fast & simple storage - a Node.js-style LevelDB wrapper**\n\n[![Build Status](https://secure.travis-ci.org/rvagg/node-levelup.png)](http://travis-ci.org/rvagg/node-levelup)\n\n[![NPM](https://nodei.co/npm/levelup.png?stars&downloads)](https://nodei.co/npm/levelup/) [![NPM](https://nodei.co/npm-dl/levelup.png)](https://nodei.co/npm/levelup/)\n\n\n  * <a href=\"#intro\">Introduction</a>\n  * <a href=\"#leveldown\">Relationship to LevelDOWN</a>\n  * <a href=\"#platforms\">Tested &amp; supported platforms</a>\n  * <a href=\"#basic\">Basic usage</a>\n  * <a href=\"#api\">API</a>\n  * <a href=\"#events\">Events</a>\n  * <a href=\"#json\">JSON data</a>\n  * <a href=\"#custom_encodings\">Custom encodings</a>\n  * <a href=\"#extending\">Extending LevelUP</a>\n  * <a href=\"#multiproc\">Multi-process access</a>\n  * <a href=\"#support\">Getting support</a>\n  * <a href=\"#contributing\">Contributing</a>\n  * <a href=\"#licence\">Licence &amp; copyright</a>\n\n<a name=\"intro\"></a>\nIntroduction\n------------\n\n**[LevelDB](http://code.google.com/p/leveldb/)** is a simple key/value data store built by Google, inspired by BigTable. It's used in Google Chrome and many other products. LevelDB supports arbitrary byte arrays as both keys and values, singular *get*, *put* and *delete* operations, *batched put and delete*, bi-directional iterators and simple compression using the very fast [Snappy](http://code.google.com/p/snappy/) algorithm.\n\n**LevelUP** aims to expose the features of LevelDB in a **Node.js-friendly way**. All standard `Buffer` encoding types are supported, as is a special JSON encoding. LevelDB's iterators are exposed as a Node.js-style **readable stream** a matching **writeable stream** converts writes to *batch* operations.\n\nLevelDB stores entries **sorted lexicographically by keys**. This makes LevelUP's <a href=\"#createReadStream\"><code>ReadStream</code></a> interface a very powerful query mechanism.\n\n**LevelUP** is an **OPEN Open Source Project**, see the <a href=\"#contributing\">Contributing</a> section to find out what this means.\n\n<a name=\"leveldown\"></a>\nRelationship to LevelDOWN\n-------------------------\n\nLevelUP is designed to be backed by **[LevelDOWN](https://github.com/rvagg/node-leveldown/)** which provides a pure C++ binding to LevelDB and can be used as a stand-alone package if required.\n\n**As of version 0.9, LevelUP no longer requires LevelDOWN as a dependency so you must `npm install leveldown` when you install LevelUP.**\n\nLevelDOWN is now optional because LevelUP can be used with alternative backends, such as **[level.js](https://github.com/maxogden/level.js)** in the browser or [MemDOWN](https://github.com/rvagg/node-memdown) for a pure in-memory store.\n\nLevelUP will look for LevelDOWN and throw an error if it can't find it in its Node `require()` path. It will also tell you if the installed version of LevelDOWN is incompatible.\n\n**The [level](https://github.com/level/level) package is available as an alternative installation mechanism.** Install it instead to automatically get both LevelUP & LevelDOWN. It exposes LevelUP on its export (i.e. you can `var leveldb = require('level')`).\n\n\n<a name=\"platforms\"></a>\nTested & supported platforms\n----------------------------\n\n  * **Linux**: including ARM platforms such as Raspberry Pi *and Kindle!*\n  * **Mac OS**\n  * **Solaris**: including Joyent's SmartOS & Nodejitsu\n  * **Windows**: Node 0.10 and above only. See installation instructions for *node-gyp's* dependencies [here](https://github.com/TooTallNate/node-gyp#installation), you'll need these (free) components from Microsoft to compile and run any native Node add-on in Windows.\n\n<a name=\"basic\"></a>\nBasic usage\n-----------\n\nFirst you need to install LevelUP!\n\n```sh\n$ npm install levelup leveldown\n```\n\nOr\n\n```sh\n$ npm install level\n```\n\n*(this second option requires you to use LevelUP by calling `var levelup = require('level')`)*\n\n\nAll operations are asynchronous although they don't necessarily require a callback if you don't need to know when the operation was performed.\n\n```js\nvar levelup = require('levelup')\n\n// 1) Create our database, supply location and options.\n//    This will create or open the underlying LevelDB store.\nvar db = levelup('./mydb')\n\n// 2) put a key & value\ndb.put('name', 'LevelUP', function (err) {\n  if (err) return console.log('Ooops!', err) // some kind of I/O error\n\n  // 3) fetch by key\n  db.get('name', function (err, value) {\n    if (err) return console.log('Ooops!', err) // likely the key was not found\n\n    // ta da!\n    console.log('name=' + value)\n  })\n})\n```\n\n<a name=\"api\"></a>\n## API\n\n  * <a href=\"#ctor\"><code><b>levelup()</b></code></a>\n  * <a href=\"#open\"><code>db.<b>open()</b></code></a>\n  * <a href=\"#close\"><code>db.<b>close()</b></code></a>\n  * <a href=\"#put\"><code>db.<b>put()</b></code></a>\n  * <a href=\"#get\"><code>db.<b>get()</b></code></a>\n  * <a href=\"#del\"><code>db.<b>del()</b></code></a>\n  * <a href=\"#batch\"><code>db.<b>batch()</b></code> *(array form)*</a>\n  * <a href=\"#batch_chained\"><code>db.<b>batch()</b></code> *(chained form)*</a>\n  * <a href=\"#isOpen\"><code>db.<b>isOpen()</b></code></a>\n  * <a href=\"#isClosed\"><code>db.<b>isClosed()</b></code></a>\n  * <a href=\"#createReadStream\"><code>db.<b>createReadStream()</b></code></a>\n  * <a href=\"#createKeyStream\"><code>db.<b>createKeyStream()</b></code></a>\n  * <a href=\"#createValueStream\"><code>db.<b>createValueStream()</b></code></a>\n  * <a href=\"#createWriteStream\"><code>db.<b>createWriteStream()</b></code></a>\n\n### Special operations exposed by LevelDOWN\n\n  * <a href=\"#approximateSize\"><code>db.db.<b>approximateSize()</b></code></a>\n  * <a href=\"#getProperty\"><code>db.db.<b>getProperty()</b></code></a>\n  * <a href=\"#destroy\"><code><b>leveldown.destroy()</b></code></a>\n  * <a href=\"#repair\"><code><b>leveldown.repair()</b></code></a>\n\n\n--------------------------------------------------------\n<a name=\"ctor\"></a>\n### levelup(location[, options[, callback]])\n### levelup(options[, callback ])\n### levelup(db[, callback ])\n<code>levelup()</code> is the main entry point for creating a new LevelUP instance and opening the underlying store with LevelDB.\n\nThis function returns a new instance of LevelUP and will also initiate an <a href=\"#open\"><code>open()</code></a> operation. Opening the database is an asynchronous operation which will trigger your callback if you provide one. The callback should take the form: `function (err, db) {}` where the `db` is the LevelUP instance. If you don't provide a callback, any read & write operations are simply queued internally until the database is fully opened.\n\nThis leads to two alternative ways of managing a new LevelUP instance:\n\n```js\nlevelup(location, options, function (err, db) {\n  if (err) throw err\n  db.get('foo', function (err, value) {\n    if (err) return console.log('foo does not exist')\n    console.log('got foo =', value)\n  })\n})\n\n// vs the equivalent:\n\nvar db = levelup(location, options) // will throw if an error occurs\ndb.get('foo', function (err, value) {\n  if (err) return console.log('foo does not exist')\n  console.log('got foo =', value)\n})\n```\n\nThe `location` argument is available as a read-only property on the returned LevelUP instance.\n\nThe `levelup(options, callback)` form (with optional `callback`) is only available where you provide a valid `'db'` property on the options object (see below). Only for back-ends that don't require a `location` argument, such as [MemDOWN](https://github.com/rvagg/memdown).\n\nFor example:\n\n```js\nvar levelup = require('levelup')\nvar memdown = require('memdown')\nvar db = levelup({ db: memdown })\n```\n\nThe `levelup(db, callback)` form (with optional `callback`) is only available where `db` is a factory function, as would be provided as a `'db'` property on an `options` object (see below). Only for back-ends that don't require a `location` argument, such as [MemDOWN](https://github.com/rvagg/memdown).\n\nFor example:\n\n```js\nvar levelup = require('levelup')\nvar memdown = require('memdown')\nvar db = levelup(memdown)\n```\n\n#### `options`\n\n`levelup()` takes an optional options object as its second argument; the following properties are accepted:\n\n* `'createIfMissing'` *(boolean, default: `true`)*: If `true`, will initialise an empty database at the specified location if one doesn't already exist. If `false` and a database doesn't exist you will receive an error in your `open()` callback and your database won't open.\n\n* `'errorIfExists'` *(boolean, default: `false`)*: If `true`, you will receive an error in your `open()` callback if the database exists at the specified location.\n\n* `'compression'` *(boolean, default: `true`)*: If `true`, all *compressible* data will be run through the Snappy compression algorithm before being stored. Snappy is very fast and shouldn't gain much speed by disabling so leave this on unless you have good reason to turn it off.\n\n* `'cacheSize'` *(number, default: `8 * 1024 * 1024`)*: The size (in bytes) of the in-memory [LRU](http://en.wikipedia.org/wiki/Cache_algorithms#Least_Recently_Used) cache with frequently used uncompressed block contents. \n\n* `'keyEncoding'` and `'valueEncoding'` *(string, default: `'utf8'`)*: The encoding of the keys and values passed through Node.js' `Buffer` implementation (see [Buffer#toString()](http://nodejs.org/docs/latest/api/buffer.html#buffer_buf_tostring_encoding_start_end)).\n  <p><code>'utf8'</code> is the default encoding for both keys and values so you can simply pass in strings and expect strings from your <code>get()</code> operations. You can also pass <code>Buffer</code> objects as keys and/or values and conversion will be performed.</p>\n  <p>Supported encodings are: hex, utf8, ascii, binary, base64, ucs2, utf16le.</p>\n  <p><code>'json'</code> encoding is also supported, see below.</p>\n\n* `'db'` *(object, default: LevelDOWN)*: LevelUP is backed by [LevelDOWN](https://github.com/rvagg/node-leveldown/) to provide an interface to LevelDB. You can completely replace the use of LevelDOWN by providing a \"factory\" function that will return a LevelDOWN API compatible object given a `location` argument. For further information, see [MemDOWN](https://github.com/rvagg/node-memdown/), a fully LevelDOWN API compatible replacement that uses a memory store rather than LevelDB. Also see [Abstract LevelDOWN](http://github.com/rvagg/node-abstract-leveldown), a partial implementation of the LevelDOWN API that can be used as a base prototype for a LevelDOWN substitute.\n\nAdditionally, each of the main interface methods accept an optional options object that can be used to override `'keyEncoding'` and `'valueEncoding'`.\n\n--------------------------------------------------------\n<a name=\"open\"></a>\n### db.open([callback])\n<code>open()</code> opens the underlying LevelDB store. In general **you should never need to call this method directly** as it's automatically called by <a href=\"#ctor\"><code>levelup()</code></a>.\n\nHowever, it is possible to *reopen* a database after it has been closed with <a href=\"#close\"><code>close()</code></a>, although this is not generally advised.\n\n--------------------------------------------------------\n<a name=\"close\"></a>\n### db.close([callback])\n<code>close()</code> closes the underlying LevelDB store. The callback will receive any error encountered during closing as the first argument.\n\nYou should always clean up your LevelUP instance by calling `close()` when you no longer need it to free up resources. A LevelDB store cannot be opened by multiple instances of LevelDB/LevelUP simultaneously.\n\n--------------------------------------------------------\n<a name=\"put\"></a>\n### db.put(key, value[, options][, callback])\n<code>put()</code> is the primary method for inserting data into the store. Both the `key` and `value` can be arbitrary data objects.\n\nThe callback argument is optional but if you don't provide one and an error occurs then expect the error to be thrown.\n\n#### `options`\n\nEncoding of the `key` and `value` objects will adhere to `'keyEncoding'` and `'valueEncoding'` options provided to <a href=\"#ctor\"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `put()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).\n\nIf you provide a `'sync'` value of `true` in your `options` object, LevelDB will perform a synchronous write of the data; although the operation will be asynchronous as far as Node is concerned. Normally, LevelDB passes the data to the operating system for writing and returns immediately, however a synchronous write will use `fsync()` or equivalent so your callback won't be triggered until the data is actually on disk. Synchronous filesystem writes are **significantly** slower than asynchronous writes but if you want to be absolutely sure that the data is flushed then you can use `'sync': true`.\n\n--------------------------------------------------------\n<a name=\"get\"></a>\n### db.get(key[, options][, callback])\n<code>get()</code> is the primary method for fetching data from the store. The `key` can be an arbitrary data object. If it doesn't exist in the store then the callback will receive an error as its first argument. A not-found err object will be of type `'NotFoundError'` so you can `err.type == 'NotFoundError'` or you can perform a truthy test on the property `err.notFound`.\n\n```js\ndb.get('foo', function (err, value) {\n  if (err) {\n    if (err.notFound) {\n      // handle a 'NotFoundError' here\n      return\n    }\n    // I/O or other error, pass it up the callback chain\n    return callback(err)\n  }\n\n  // .. handle `value` here\n})\n```\n\n#### `options`\n\nEncoding of the `key` object will adhere to the `'keyEncoding'` option provided to <a href=\"#ctor\"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `get()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).\n\nLevelDB will by default fill the in-memory LRU Cache with data from a call to get. Disabling this is done by setting `fillCache` to `false`. \n\n--------------------------------------------------------\n<a name=\"del\"></a>\n### db.del(key[, options][, callback])\n<code>del()</code> is the primary method for removing data from the store.\n\n#### `options`\n\nEncoding of the `key` object will adhere to the `'keyEncoding'` option provided to <a href=\"#ctor\"><code>levelup()</code></a>, although you can provide alternative encoding settings in the options for `del()` (it's recommended that you stay consistent in your encoding of keys and values in a single store).\n\nA `'sync'` option can also be passed, see <a href=\"#put\"><code>put()</code></a> for details on how this works.\n\n--------------------------------------------------------\n<a name=\"batch\"></a>\n### db.batch(array[, options][, callback]) *(array form)*\n<code>batch()</code> can be used for very fast bulk-write operations (both *put* and *delete*). The `array` argument should contain a list of operations to be executed sequentially, although as a whole they are performed as an atomic operation inside LevelDB. Each operation is contained in an object having the following properties: `type`, `key`, `value`, where the *type* is either `'put'` or `'del'`. In the case of `'del'` the `'value'` property is ignored. Any entries with a `'key'` of `null` or `undefined` will cause an error to be returned on the `callback` and any `'type': 'put'` entry with a `'value'` of `null` or `undefined` will return an error.\n\n```js\nvar ops = [\n    { type: 'del', key: 'father' }\n  , { type: 'put', key: 'name', value: 'Yuri Irsenovich Kim' }\n  , { type: 'put', key: 'dob', value: '16 February 1941' }\n  , { type: 'put', key: 'spouse', value: 'Kim Young-sook' }\n  , { type: 'put', key: 'occupation', value: 'Clown' }\n]\n\ndb.batch(ops, function (err) {\n  if (err) return console.log('Ooops!', err)\n  console.log('Great success dear leader!')\n})\n```\n\n#### `options`\n\nSee <a href=\"#put\"><code>put()</code></a> for a discussion on the `options` object. You can overwrite default `'keyEncoding'` and `'valueEncoding'` and also specify the use of `sync` filesystem operations.\n\nIn addition to encoding options for the whole batch you can also overwrite the encoding per operation, like:\n\n```js\nvar ops = [{\n    type          : 'put'\n  , key           : new Buffer([1, 2, 3])\n  , value         : { some: 'json' }\n  , keyEncoding   : 'binary'\n  , valueEncoding : 'json'\n}]\n```\n\n--------------------------------------------------------\n<a name=\"batch_chained\"></a>\n### db.batch() *(chained form)*\n<code>batch()</code>, when called with no arguments will return a `Batch` object which can be used to build, and eventually commit, an atomic LevelDB batch operation. Depending on how it's used, it is possible to obtain greater performance when using the chained form of `batch()` over the array form.\n\n```js\ndb.batch()\n  .del('father')\n  .put('name', 'Yuri Irsenovich Kim')\n  .put('dob', '16 February 1941')\n  .put('spouse', 'Kim Young-sook')\n  .put('occupation', 'Clown')\n  .write(function () { console.log('Done!') })\n```\n\n<b><code>batch.put(key, value[, options])</code></b>\n\nQueue a *put* operation on the current batch, not committed until a `write()` is called on the batch.\n\nThe optional `options` argument can be used to override the default `'keyEncoding'` and/or `'valueEncoding'`.\n\nThis method may `throw` a `WriteError` if there is a problem with your put (such as the `value` being `null` or `undefined`).\n\n<b><code>batch.del(key[, options])</code></b>\n\nQueue a *del* operation on the current batch, not committed until a `write()` is called on the batch.\n\nThe optional `options` argument can be used to override the default `'keyEncoding'`.\n\nThis method may `throw` a `WriteError` if there is a problem with your delete.\n\n<b><code>batch.clear()</code></b>\n\nClear all queued operations on the current batch, any previous operations will be discarded.\n\n<b><code>batch.write([callback])</code></b>\n\nCommit the queued operations for this batch. All operations not *cleared* will be written to the database atomically, that is, they will either all succeed or fail with no partial commits. The optional `callback` will be called when the operation has completed with an *error* argument if an error has occurred; if no `callback` is supplied and an error occurs then this method will `throw` a `WriteError`.\n\n\n--------------------------------------------------------\n<a name=\"isOpen\"></a>\n### db.isOpen()\n\nA LevelUP object can be in one of the following states:\n\n  * *\"new\"*     - newly created, not opened or closed\n  * *\"opening\"* - waiting for the database to be opened\n  * *\"open\"*    - successfully opened the database, available for use\n  * *\"closing\"* - waiting for the database to be closed\n  * *\"closed\"*  - database has been successfully closed, should not be used\n\n`isOpen()` will return `true` only when the state is \"open\".\n\n--------------------------------------------------------\n<a name=\"isClosed\"></a>\n### db.isClosed()\n\n*See <a href=\"#put\"><code>isOpen()</code></a>*\n\n`isClosed()` will return `true` only when the state is \"closing\" *or* \"closed\", it can be useful for determining if read and write operations are permissible.\n\n--------------------------------------------------------\n<a name=\"createReadStream\"></a>\n### db.createReadStream([options])\n\nYou can obtain a **ReadStream** of the full database by calling the `createReadStream()` method. The resulting stream is a complete Node.js-style [Readable Stream](http://nodejs.org/docs/latest/api/stream.html#stream_readable_stream) where `'data'` events emit objects with `'key'` and `'value'` pairs. You can also use the `start`, `end` and `limit` options to control the range of keys that are streamed.\n\n```js\ndb.createReadStream()\n  .on('data', function (data) {\n    console.log(data.key, '=', data.value)\n  })\n  .on('error', function (err) {\n    console.log('Oh my!', err)\n  })\n  .on('close', function () {\n    console.log('Stream closed')\n  })\n  .on('end', function () {\n    console.log('Stream closed')\n  })\n```\n\nThe standard `pause()`, `resume()` and `destroy()` methods are implemented on the ReadStream, as is `pipe()` (see below). `'data'`, '`error'`, `'end'` and `'close'` events are emitted.\n\nAdditionally, you can supply an options object as the first parameter to `createReadStream()` with the following options:\n\n* `'start'`: the key you wish to start the read at. By default it will start at the beginning of the store. Note that the *start* doesn't have to be an actual key that exists, LevelDB will simply find the *next* key, greater than the key you provide.\n\n* `'end'`: the key you wish to end the read on. By default it will continue until the end of the store. Again, the *end* doesn't have to be an actual key as an (inclusive) `<=`-type operation is performed to detect the end. You can also use the `destroy()` method instead of supplying an `'end'` parameter to achieve the same effect.\n\n* `'reverse'` *(boolean, default: `false`)*: a boolean, set to true if you want the stream to go in reverse order. Beware that due to the way LevelDB works, a reverse seek will be slower than a forward seek.\n\n* `'keys'` *(boolean, default: `true`)*: whether the `'data'` event should contain keys. If set to `true` and `'values'` set to `false` then `'data'` events will simply be keys, rather than objects with a `'key'` property. Used internally by the `createKeyStream()` method.\n\n* `'values'` *(boolean, default: `true`)*: whether the `'data'` event should contain values. If set to `true` and `'keys'` set to `false` then `'data'` events will simply be values, rather than objects with a `'value'` property. Used internally by the `createValueStream()` method.\n\n* `'limit'` *(number, default: `-1`)*: limit the number of results collected by this stream. This number represents a *maximum* number of results and may not be reached if you get to the end of the store or your `'end'` value first. A value of `-1` means there is no limit.\n\n* `'fillCache'` *(boolean, default: `false`)*: wheather LevelDB's LRU-cache should be filled with data read.\n\n* `'keyEncoding'` / `'valueEncoding'` *(string)*: the encoding applied to each read piece of data.\n\n--------------------------------------------------------\n<a name=\"createKeyStream\"></a>\n### db.createKeyStream([options])\n\nA **KeyStream** is a **ReadStream** where the `'data'` events are simply the keys from the database so it can be used like a traditional stream rather than an object stream.\n\nYou can obtain a KeyStream either by calling the `createKeyStream()` method on a LevelUP object or by passing passing an options object to `createReadStream()` with `keys` set to `true` and `values` set to `false`.\n\n```js\ndb.createKeyStream()\n  .on('data', function (data) {\n    console.log('key=', data)\n  })\n\n// same as:\ndb.createReadStream({ keys: true, values: false })\n  .on('data', function (data) {\n    console.log('key=', data)\n  })\n```\n\n--------------------------------------------------------\n<a name=\"createValueStream\"></a>\n### db.createValueStream([options])\n\nA **ValueStream** is a **ReadStream** where the `'data'` events are simply the values from the database so it can be used like a traditional stream rather than an object stream.\n\nYou can obtain a ValueStream either by calling the `createValueStream()` method on a LevelUP object or by passing passing an options object to `createReadStream()` with `values` set to `true` and `keys` set to `false`.\n\n```js\ndb.createValueStream()\n  .on('data', function (data) {\n    console.log('value=', data)\n  })\n\n// same as:\ndb.createReadStream({ keys: false, values: true })\n  .on('data', function (data) {\n    console.log('value=', data)\n  })\n```\n\n--------------------------------------------------------\n<a name=\"createWriteStream\"></a>\n### db.createWriteStream([options])\n\nA **WriteStream** can be obtained by calling the `createWriteStream()` method. The resulting stream is a complete Node.js-style [Writable Stream](http://nodejs.org/docs/latest/api/stream.html#stream_writable_stream) which accepts objects with `'key'` and `'value'` pairs on its `write()` method.\n\nThe WriteStream will buffer writes and submit them as a `batch()` operations where writes occur *within the same tick*.\n\n```js\nvar ws = db.createWriteStream()\n\nws.on('error', function (err) {\n  console.log('Oh my!', err)\n})\nws.on('close', function () {\n  console.log('Stream closed')\n})\n\nws.write({ key: 'name', value: 'Yuri Irsenovich Kim' })\nws.write({ key: 'dob', value: '16 February 1941' })\nws.write({ key: 'spouse', value: 'Kim Young-sook' })\nws.write({ key: 'occupation', value: 'Clown' })\nws.end()\n```\n\nThe standard `write()`, `end()`, `destroy()` and `destroySoon()` methods are implemented on the WriteStream. `'drain'`, `'error'`, `'close'` and `'pipe'` events are emitted.\n\nYou can specify encodings both for the whole stream and individual entries:\n\nTo set the encoding for the whole stream, provide an options object as the first parameter to `createWriteStream()` with `'keyEncoding'` and/or `'valueEncoding'`.\n\nTo set the encoding for an individual entry:\n\n```js\nwriteStream.write({\n    key           : new Buffer([1, 2, 3])\n  , value         : { some: 'json' }\n  , keyEncoding   : 'binary'\n  , valueEncoding : 'json'\n})\n```\n\n#### write({ type: 'put' })\n\nIf individual `write()` operations are performed with a `'type'` property of `'del'`, they will be passed on as `'del'` operations to the batch.\n\n```js\nvar ws = db.createWriteStream()\n\nws.on('error', function (err) {\n  console.log('Oh my!', err)\n})\nws.on('close', function () {\n  console.log('Stream closed')\n})\n\nws.write({ type: 'del', key: 'name' })\nws.write({ type: 'del', key: 'dob' })\nws.write({ type: 'put', key: 'spouse' })\nws.write({ type: 'del', key: 'occupation' })\nws.end()\n```\n\n#### db.createWriteStream({ type: 'del' })\n\nIf the *WriteStream* is created with a `'type'` option of `'del'`, all `write()` operations will be interpreted as `'del'`, unless explicitly specified as `'put'`.\n\n```js\nvar ws = db.createWriteStream({ type: 'del' })\n\nws.on('error', function (err) {\n  console.log('Oh my!', err)\n})\nws.on('close', function () {\n  console.log('Stream closed')\n})\n\nws.write({ key: 'name' })\nws.write({ key: 'dob' })\n// but it can be overridden\nws.write({ type: 'put', key: 'spouse', value: 'Ri Sol-ju' })\nws.write({ key: 'occupation' })\nws.end()\n```\n\n#### Pipes and Node Stream compatibility\n\nA ReadStream can be piped directly to a WriteStream, allowing for easy copying of an entire database. A simple `copy()` operation is included in LevelUP that performs exactly this on two open databases:\n\n```js\nfunction copy (srcdb, dstdb, callback) {\n  srcdb.createReadStream().pipe(dstdb.createWriteStream()).on('close', callback)\n}\n```\n\nThe ReadStream is also [fstream](https://github.com/isaacs/fstream)-compatible which means you should be able to pipe to and from fstreams. So you can serialize and deserialize an entire database to a directory where keys are filenames and values are their contents, or even into a *tar* file using [node-tar](https://github.com/isaacs/node-tar). See the [fstream functional test](https://github.com/rvagg/node-levelup/blob/master/test/functional/fstream-test.js) for an example. *(Note: I'm not really sure there's a great use-case for this but it's a fun example and it helps to harden the stream implementations.)*\n\nKeyStreams and ValueStreams can be treated like standard streams of raw data. If `'keyEncoding'` or `'valueEncoding'` is set to `'binary'` the `'data'` events will simply be standard Node `Buffer` objects straight out of the data store.\n\n\n--------------------------------------------------------\n<a name='approximateSize'></a>\n### db.db.approximateSize(start, end, callback)\n<code>approximateSize()</code> can used to get the approximate number of bytes of file system space used by the range `[start..end)`. The result may not include recently written data.\n\n```js\nvar db = require('level')('./huge.db')\n\ndb.db.approximateSize('a', 'c', function (err, size) {\n  if (err) return console.error('Ooops!', err)\n  console.log('Approximate size of range is %d', size)\n})\n```\n\n**Note:** `approximateSize()` is available via [LevelDOWN](https://github.com/rvagg/node-leveldown/), which by default is accessible as the `db` property of your LevelUP instance. This is a specific LevelDB operation and is not likely to be available where you replace LevelDOWN with an alternative back-end via the `'db'` option.\n\n\n--------------------------------------------------------\n<a name='getProperty'></a>\n### db.db.getProperty(property)\n<code>getProperty</code> can be used to get internal details from LevelDB. When issued with a valid property string, a readable string will be returned (this method is synchronous).\n\nCurrently, the only valid properties are:\n\n* <b><code>'leveldb.num-files-at-levelN'</code></b>: returns the number of files at level *N*, where N is an integer representing a valid level (e.g. \"0\").\n\n* <b><code>'leveldb.stats'</code></b>: returns a multi-line string describing statistics about LevelDB's internal operation.\n\n* <b><code>'leveldb.sstables'</code></b>: returns a multi-line string describing all of the *sstables* that make up contents of the current database.\n\n\n```js\nvar db = require('level')('./huge.db')\nconsole.log(db.db.getProperty('leveldb.num-files-at-level3'))\n// → '243'\n```\n\n**Note:** `getProperty()` is available via [LevelDOWN](https://github.com/rvagg/node-leveldown/), which by default is accessible as the `db` property of your LevelUP instance. This is a specific LevelDB operation and is not likely to be available where you replace LevelDOWN with an alternative back-end via the `'db'` option.\n\n\n--------------------------------------------------------\n<a name=\"destroy\"></a>\n### leveldown.destroy(location, callback)\n<code>destroy()</code> is used to completely remove an existing LevelDB database directory. You can use this function in place of a full directory *rm* if you want to be sure to only remove LevelDB-related files. If the directory only contains LevelDB files, the directory itself will be removed as well. If there are additional, non-LevelDB files in the directory, those files, and the directory, will be left alone.\n\nThe callback will be called when the destroy operation is complete, with a possible `error` argument.\n\n**Note:** `destroy()` is available via [LevelDOWN](https://github.com/rvagg/node-leveldown/) which you will have to install seperately, e.g.:\n\n```js\nrequire('leveldown').destroy('./huge.db', function (err) { console.log('done!') })\n```\n\n--------------------------------------------------------\n<a name=\"repair\"></a>\n### leveldown.repair(location, callback)\n<code>repair()</code> can be used to attempt a restoration of a damaged LevelDB store. From the LevelDB documentation:\n\n> If a DB cannot be opened, you may attempt to call this method to resurrect as much of the contents of the database as possible. Some data may be lost, so be careful when calling this function on a database that contains important information.\n\nYou will find information on the *repair* operation in the *LOG* file inside the store directory. \n\nA `repair()` can also be used to perform a compaction of the LevelDB log into table files.\n\nThe callback will be called when the repair operation is complete, with a possible `error` argument.\n\n**Note:** `repair()` is available via [LevelDOWN](https://github.com/rvagg/node-leveldown/) which you will have to install seperately, e.g.:\n\n```js\nrequire('leveldown').repair('./huge.db', function (err) { console.log('done!') })\n```\n\n--------------------------------------------------------\n\n<a name=\"events\"></a>\nEvents\n------\n\nLevelUP emits events when the callbacks to the corresponding methods are called.\n\n* `db.emit('put', key, value)` emitted when a new value is `'put'`\n* `db.emit('del', key)` emitted when a value is deleted\n* `db.emit('batch', ary)` emitted when a batch operation has executed\n* `db.emit('ready')` emitted when the database has opened (`'open'` is synonym)\n* `db.emit('closed')` emitted when the database has closed\n* `db.emit('opening')` emitted when the database is opening\n* `db.emit('closing')` emitted when the database is closing\n\nIf you do not pass a callback to an async function, and there is an error, LevelUP will `emit('error', err)` instead.\n\n<a name=\"json\"></a>\nJSON data\n---------\n\nYou specify `'json'` encoding for both keys and/or values, you can then supply JavaScript objects to LevelUP and receive them from all fetch operations, including ReadStreams. LevelUP will automatically *stringify* your objects and store them as *utf8* and parse the strings back into objects before passing them back to you.\n\n<a name=\"custom_encodings\"></a>\nCustom encodings\n----------------\n\nA custom encoding may be provided by passing in an object as an value for `keyEncoding` or `valueEncoding` (wherever accepted), it must have the following properties:\n\n```js\n{\n    encode : function (val) { ... }\n  , decode : function (val) { ... }\n  , buffer : boolean // encode returns a buffer-like and decode accepts a buffer\n  , type   : String  // name of this encoding type.\n}\n```\n\n*\"buffer-like\"* means either a `Buffer` if running in Node, or a Uint8Array if in a browser. Use [bops](https://github.com/chrisdickinson/bops) to get portable binary operations.\n\n<a name=\"extending\"></a>\nExtending LevelUP\n-----------------\n\nA list of <a href=\"https://github.com/rvagg/node-levelup/wiki/Modules\"><b>Node.js LevelDB modules and projects</b></a> can be found in the wiki.\n\nWhen attempting to extend the functionality of LevelUP, it is recommended that you consider using [level-hooks](https://github.com/dominictarr/level-hooks) and/or [level-sublevel](https://github.com/dominictarr/level-sublevel). **level-sublevel** is particularly helpful for keeping additional, extension-specific, data in a LevelDB store. It allows you to partition a LevelUP instance into multiple sub-instances that each correspond to discrete namespaced key ranges.\n\n<a name=\"multiproc\"></a>\nMulti-process access\n--------------------\n\nLevelDB is thread-safe but is **not** suitable for accessing with multiple processes. You should only ever have a LevelDB database open from a single Node.js process. Node.js clusters are made up of multiple processes so a LevelUP instance cannot be shared between them either.\n\nSee the <a href=\"https://github.com/rvagg/node-levelup/wiki/Modules\"><b>wiki</b></a> for some LevelUP extensions, including [multilevel](https://github.com/juliangruber/multilevel), that may help if you require a single data store to be shared across processes.\n\n<a name=\"support\"></a>\nGetting support\n---------------\n\nThere are multiple ways you can find help in using LevelDB in Node.js:\n\n * **IRC:** you'll find an active group of LevelUP users in the **##leveldb** channel on Freenode, including most of the contributors to this project.\n * **Mailing list:** there is an active [Node.js LevelDB](https://groups.google.com/forum/#!forum/node-levelup) Google Group.\n * **GitHub:** you're welcome to open an issue here on this GitHub repository if you have a question.\n\n<a name=\"contributing\"></a>\nContributing\n------------\n\nLevelUP is an **OPEN Open Source Project**. This means that:\n\n> Individuals making significant and valuable contributions are given commit-access to the project to contribute as they see fit. This project is more like an open wiki than a standard guarded open source project.\n\nSee the [CONTRIBUTING.md](https://github.com/rvagg/node-levelup/blob/master/CONTRIBUTING.md) file for more details.\n\n### Contributors\n\nLevelUP is only possible due to the excellent work of the following contributors:\n\n<table><tbody>\n<tr><th align=\"left\">Rod Vagg</th><td><a href=\"https://github.com/rvagg\">GitHub/rvagg</a></td><td><a href=\"http://twitter.com/rvagg\">Twitter/@rvagg</a></td></tr>\n<tr><th align=\"left\">John Chesley</th><td><a href=\"https://github.com/chesles/\">GitHub/chesles</a></td><td><a href=\"http://twitter.com/chesles\">Twitter/@chesles</a></td></tr>\n<tr><th align=\"left\">Jake Verbaten</th><td><a href=\"https://github.com/raynos\">GitHub/raynos</a></td><td><a href=\"http://twitter.com/raynos2\">Twitter/@raynos2</a></td></tr>\n<tr><th align=\"left\">Dominic Tarr</th><td><a href=\"https://github.com/dominictarr\">GitHub/dominictarr</a></td><td><a href=\"http://twitter.com/dominictarr\">Twitter/@dominictarr</a></td></tr>\n<tr><th align=\"left\">Max Ogden</th><td><a href=\"https://github.com/maxogden\">GitHub/maxogden</a></td><td><a href=\"http://twitter.com/maxogden\">Twitter/@maxogden</a></td></tr>\n<tr><th align=\"left\">Lars-Magnus Skog</th><td><a href=\"https://github.com/ralphtheninja\">GitHub/ralphtheninja</a></td><td><a href=\"http://twitter.com/ralphtheninja\">Twitter/@ralphtheninja</a></td></tr>\n<tr><th align=\"left\">David Björklund</th><td><a href=\"https://github.com/kesla\">GitHub/kesla</a></td><td><a href=\"http://twitter.com/david_bjorklund\">Twitter/@david_bjorklund</a></td></tr>\n<tr><th align=\"left\">Julian Gruber</th><td><a href=\"https://github.com/juliangruber\">GitHub/juliangruber</a></td><td><a href=\"http://twitter.com/juliangruber\">Twitter/@juliangruber</a></td></tr>\n<tr><th align=\"left\">Paolo Fragomeni</th><td><a href=\"https://github.com/hij1nx\">GitHub/hij1nx</a></td><td><a href=\"http://twitter.com/hij1nx\">Twitter/@hij1nx</a></td></tr>\n<tr><th align=\"left\">Anton Whalley</th><td><a href=\"https://github.com/No9\">GitHub/No9</a></td><td><a href=\"https://twitter.com/antonwhalley\">Twitter/@antonwhalley</a></td></tr>\n<tr><th align=\"left\">Matteo Collina</th><td><a href=\"https://github.com/mcollina\">GitHub/mcollina</a></td><td><a href=\"https://twitter.com/matteocollina\">Twitter/@matteocollina</a></td></tr>\n<tr><th align=\"left\">Pedro Teixeira</th><td><a href=\"https://github.com/pgte\">GitHub/pgte</a></td><td><a href=\"https://twitter.com/pgte\">Twitter/@pgte</a></td></tr>\n<tr><th align=\"left\">James Halliday</th><td><a href=\"https://github.com/substack\">GitHub/substack</a></td><td><a href=\"https://twitter.com/substack\">Twitter/@substack</a></td></tr>\n</tbody></table>\n\n### Windows\n\nA large portion of the Windows support comes from code by [Krzysztof Kowalczyk](http://blog.kowalczyk.info/) [@kjk](https://twitter.com/kjk), see his Windows LevelDB port [here](http://code.google.com/r/kkowalczyk-leveldb/). If you're using LevelUP on Windows, you should give him your thanks!\n\n\n<a name=\"license\"></a>\nLicense &amp; copyright\n-------------------\n\nCopyright (c) 2012-2014 LevelUP contributors (listed above).\n\nLevelUP is licensed under the MIT license. All rights not explicitly granted in the MIT license are reserved. See the included LICENSE.md file for more details.\n\n=======\n*LevelUP builds on the excellent work of the LevelDB and Snappy teams from Google and additional contributors. LevelDB and Snappy are both issued under the [New BSD Licence](http://opensource.org/licenses/BSD-3-Clause).*\n",
+  "readmeFilename": "README.md",
   "bugs": {
     "url": "https://github.com/rvagg/node-levelup/issues"
   },
   "_id": "levelup@0.18.6",
-  "_shasum": "e6a01cb089616c8ecc0291c2a9bd3f0c44e3e5eb",
-  "_from": "levelup@>=0.18.4 <0.19.0",
-  "_npmVersion": "1.4.14",
-  "_npmUser": {
-    "name": "rvagg",
-    "email": "rod@vagg.org"
-  },
-  "maintainers": [
-    {
-      "name": "rvagg",
-      "email": "rod@vagg.org"
-    }
-  ],
-  "dist": {
-    "shasum": "e6a01cb089616c8ecc0291c2a9bd3f0c44e3e5eb",
-    "tarball": "http://registry.npmjs.org/levelup/-/levelup-0.18.6.tgz"
-  },
-  "directories": {},
-  "_resolved": "https://registry.npmjs.org/levelup/-/levelup-0.18.6.tgz",
-  "readme": "ERROR: No README data found!"
+  "_from": "levelup@>=0.18.4 <0.19.0"
 }
 
 },{}],103:[function(_dereq_,module,exports){
@@ -16541,33 +16394,33 @@ module.exports = extend;
 
 },{}],124:[function(_dereq_,module,exports){
 module.exports=_dereq_(29)
-},{"./_stream_readable":125,"./_stream_writable":127,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_duplex.js":29,"_process":27,"core-util-is":128,"inherits":47}],125:[function(_dereq_,module,exports){
+},{"./_stream_readable":125,"./_stream_writable":127,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_duplex.js":29,"_process":27,"core-util-is":128,"inherits":47}],125:[function(_dereq_,module,exports){
 module.exports=_dereq_(31)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_readable.js":31,"_process":27,"buffer":20,"core-util-is":128,"events":24,"inherits":47,"isarray":129,"stream":39,"string_decoder/":130}],126:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_readable.js":31,"_process":27,"buffer":20,"core-util-is":128,"events":24,"inherits":47,"isarray":129,"stream":39,"string_decoder/":130}],126:[function(_dereq_,module,exports){
 module.exports=_dereq_(32)
-},{"./_stream_duplex":124,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_transform.js":32,"core-util-is":128,"inherits":47}],127:[function(_dereq_,module,exports){
+},{"./_stream_duplex":124,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_transform.js":32,"core-util-is":128,"inherits":47}],127:[function(_dereq_,module,exports){
 module.exports=_dereq_(33)
-},{"./_stream_duplex":124,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_writable.js":33,"_process":27,"buffer":20,"core-util-is":128,"inherits":47,"stream":39}],128:[function(_dereq_,module,exports){
+},{"./_stream_duplex":124,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/lib/_stream_writable.js":33,"_process":27,"buffer":20,"core-util-is":128,"inherits":47,"stream":39}],128:[function(_dereq_,module,exports){
 module.exports=_dereq_(34)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/node_modules/core-util-is/lib/util.js":34,"buffer":20}],129:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/node_modules/core-util-is/lib/util.js":34,"buffer":20}],129:[function(_dereq_,module,exports){
 module.exports=_dereq_(25)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/isarray/index.js":25}],130:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/isarray/index.js":25}],130:[function(_dereq_,module,exports){
 module.exports=_dereq_(40)
-},{"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/string_decoder/index.js":40,"buffer":20}],131:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/string_decoder/index.js":40,"buffer":20}],131:[function(_dereq_,module,exports){
 module.exports=_dereq_(37)
-},{"./lib/_stream_transform.js":126,"/Users/nolan/workspace/pouchdb/node_modules/browserify/node_modules/readable-stream/transform.js":37}],132:[function(_dereq_,module,exports){
+},{"./lib/_stream_transform.js":126,"/Users/daleharvey/src/pouchdb/node_modules/browserify/node_modules/readable-stream/transform.js":37}],132:[function(_dereq_,module,exports){
 module.exports=_dereq_(57)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/has-keys.js":57}],133:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/has-keys.js":57}],133:[function(_dereq_,module,exports){
 module.exports=_dereq_(58)
-},{"./has-keys":132,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/index.js":58,"object-keys":135}],134:[function(_dereq_,module,exports){
+},{"./has-keys":132,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/index.js":58,"object-keys":135}],134:[function(_dereq_,module,exports){
 module.exports=_dereq_(59)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/foreach.js":59}],135:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/foreach.js":59}],135:[function(_dereq_,module,exports){
 module.exports=_dereq_(60)
-},{"./shim":137,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/index.js":60}],136:[function(_dereq_,module,exports){
+},{"./shim":137,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/index.js":60}],136:[function(_dereq_,module,exports){
 module.exports=_dereq_(61)
-},{"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/isArguments.js":61}],137:[function(_dereq_,module,exports){
+},{"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/isArguments.js":61}],137:[function(_dereq_,module,exports){
 module.exports=_dereq_(62)
-},{"./foreach":134,"./isArguments":136,"/Users/nolan/workspace/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/shim.js":62}],138:[function(_dereq_,module,exports){
+},{"./foreach":134,"./isArguments":136,"/Users/daleharvey/src/pouchdb/node_modules/level-js/node_modules/xtend/node_modules/object-keys/shim.js":62}],138:[function(_dereq_,module,exports){
 var Transform = _dereq_('readable-stream/transform')
   , inherits  = _dereq_('util').inherits
   , xtend     = _dereq_('xtend')

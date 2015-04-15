@@ -16,12 +16,17 @@ angular.module('db',['ngCordova'])
                     size: 50,
                     auto_compaction:true});
                 if (!self.db.adapter){
-                    self.db  = new window.PouchDB('supercomics');
-                    console.log('Usando IndexedDB');
+                    self.db  = new window.PouchDB('supercomics',{
+                        size: 50,
+                        auto_compation: true
+                    });
+                    console.log('Usando: ' + self.db.adapter);
                 } else {
                     console.log('Usando websql');
                 }
-                //PouchDB.debug.enable('*');
+                self.db.compact({},function(){
+                    console.log('db compactada');
+                });
                 self.initial();
                 //console.log('ya se grabó');
             }
@@ -33,7 +38,7 @@ angular.module('db',['ngCordova'])
             console.log('verificando si hay datos cargados:'+datos);
             if (datos=='0'){
                 console.log('Entrando a la carga de data.txt');
-                var dumpFiles = ['data_00000000.txt','data_00000001.txt','data_00000002.txt','data_00000003.txt','data_00000004.txt','data_00000005.txt','data_00000006.txt'];
+                var dumpFiles = ['data01.txt','data02.txt','data03.txt','data04.txt','data05.txt','data06.txt','data07.txt','data08.txt','data09.txt','data10.txt','data11.txt'];
                 var series = PouchDB.utils.Promise.resolve();
                 var cont = 0;
                 dumpFiles.forEach(function (dumpFile) {
@@ -103,6 +108,9 @@ angular.module('db',['ngCordova'])
         };
         self.get = function(key){
             return self.db.get(key);
+        };
+        self.getWithAttach = function(key){
+            return self.db.get(key,{attachments:true});
         };
         self.getAttach = function(key,attach){
             return self.db.getAttachment(key,attach);

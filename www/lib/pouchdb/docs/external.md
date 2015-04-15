@@ -40,9 +40,17 @@ Dump a PouchDB/CouchDB to a file, then load it wholesale. Designed for fast init
 
 Implements the handy "every document is a delta" pattern, so you don't have to deal with conflicts.
 
-#### [Filter Pouch](https://github.com/nolanlawson/filter-pouch)
+#### [Transform Pouch](https://github.com/nolanlawson/transform-pouch)
 
-Applies filter functions to documents before and after storage, e.g. for encryption, compression, or massaging data.
+Transforms documents before and after storage, e.g. for encryption, compression, or massaging data.
+
+#### [PouchDB Erase](https://github.com/marten-de-vries/pouchdb-erase)
+
+A replicating `db.destroy()` alternative.
+
+#### [PouchDB Find](https://github.com/nolanlawson/pouchdb-find)
+
+MongoDB-like query language, based on CouchDB 2.0. ([Live demo](http://nolanlawson.github.io/pouchdb-find/))
 
 #### [PouchDB GQL](https://github.com/pouchdb/GQL)
 
@@ -71,6 +79,10 @@ Full-text search engine on top of PouchDB.
 #### [Relational Pouch](https://github.com/nolanlawson/relational-pouch)
 
 A relational database API on top of PouchDB/CouchDB.
+
+#### [PouchDB Replication Stream](https://github.com/nolanlawson/pouchdb-replication-stream)
+
+Replicate between CouchDB/PouchDB using streams.
 
 #### [PouchDB Rewrite](http://python-pouchdb.marten-de-vries.nl/plugins.html)
 
@@ -108,13 +120,17 @@ A standalone CouchDB-style REST interface server to PouchDB.
 
 #### [Express PouchDB](https://github.com/pouchdb/express-pouchdb)
 
-An express submodule with a CouchDB-style REST interface to PouchDB. Powers PouchDB Server.
+An Express submodule with a CouchDB-style REST interface to PouchDB. Powers PouchDB Server.
+
+#### [Express PouchDB Replication Stream](https://github.com/conor-mac-aoidh/express-pouchdb-replication-stream)
+
+Server-side Express endpoint to deliver a stream from [PouchDB Replication Stream](https://github.com/nolanlawson/pouchdb-replication-stream).
 
 {% include anchor.html title="Framework adapters" hash="framework_adapters" %}
 
 ### Angular
 
-#### [angular-pouchdb](https://github.com/wspringer/angular-pouchdb)
+#### [angular-pouchdb](https://github.com/angular-pouchdb/angular-pouchdb)
 
 Wrapper for using PouchDB within Angular.js.
 
@@ -129,6 +145,12 @@ Angular service to persist remote connection settings and maintain continuous re
 #### [ng-pouchdb](https://github.com/danielzen/ng-pouchdb)
 
 AngularJS binding for PouchDB.
+
+### Ampersand
+
+#### [ampersand-collection-pouchdb-mixin](https://github.com/svnlto/ampersand-collection-pouchdb-mixin)
+
+A mixin for extending ampersand-collection with pouchdb persistance. 
 
 ### Backbone
 
@@ -159,7 +181,7 @@ Android adapter with a native Java interface to PouchDB.
 
 #### [blob-util](https://github.com/nolanlawson/blob-util)
 
-Not strictly PouchDB-related, but a useful set of shims and utility functions for working with Blobs in the browser.
+Shims and utils for working with binary Blobs in the browser.
 
 #### [Puton](http://puton.jit.su/)
 

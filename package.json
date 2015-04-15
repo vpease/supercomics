@@ -24,5 +24,6 @@
     "https://github.com/floatinghotpot/cordova-admob-pro",
     "https://github.com/lisovin/cordova-wp8-viewport.git",
     "org.apache.cordova.console"
-  ]
+  ],
+  "cordovaPlatforms": []
 }
