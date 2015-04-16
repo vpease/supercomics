@@ -1,8 +1,5 @@
 angular.module('services', ['db'])
 
-/**
- * A simple example service that returns some data.
- */
 .factory('Ads',function($q){
         var platform ="";
         var admobid = {};

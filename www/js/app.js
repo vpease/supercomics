@@ -1,69 +1,74 @@
-angular.module('comics', ['ionic', 'controllers', 'services','ngCordova'])
-    .run(function($ionicPlatform,Ads,Cats,$cordovaGoogleAnalytics,$cordovaDevice) {
-        $ionicPlatform.ready(function() {
-        // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
-        // for form inputs)
-            if(window.cordova && window.cordova.plugins.Keyboard) {
+angular.module('comics', ['ionic', 'controllers', 'services','ngCordova','Super'])
+    .run(function($ionicPlatform,Ads,Cats,Super,$cordovaGoogleAnalytics,$cordovaDevice) {
+        $ionicPlatform.ready(function () {
+            if (window.cordova && window.cordova.plugins.Keyboard) {
                 cordova.plugins.Keyboard.hideKeyboardAccessoryBar(true);
-            };
-            if(window.StatusBar) {
-                // org.apache.cordova.statusbar required
+            }
+            if (window.StatusBar) {
                 StatusBar.styleDefault();
             }
             console.log("App is ready!!");
-            window.localStorage['cordovaready']='true';
-
+            window.localStorage['cordovaready'] = 'true';
+            Super.set();
             var deviceId = '';
             try {
                 deviceId = $cordovaDevice.getUUID();
-            } catch(e){
+            } catch (e) {
                 deviceId = 'browser';
-            };
-            window.localStorage['deviceId']=deviceId;
-            /*console.log('Comienzo de la seccion Ads');
-            console.log('Antes de entrar al Ad section: ' + $cordovaDevice.getVersion());
-            console.log('La validación es: ' + $cordovaDevice.getVersion()>="4.2");
-            version = $cordovaDevice.getVersion().split(".");
-            if(($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") !=0) || ((version[0]>="4"))&&(version[1]>"1")) {
-                console.log('Mostrando ads');
-                Ads.getPlat().then(function (result) {
-                    if (result) {
-                        //console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
-                        //console.log('La variable admob: '+JSON.stringify(AdMob));
-                        var options = {
-                            publisherID: result.banner,
-                            adSize: 'SMART_BANNER',
-                            bannerAtTop: true, // Set to true, to put banner at top
-                            overlap: false, // True to allow banner overlap webview
-                            offsetTopBar: true, // True to avoid ios7 status bar overlap
-                            isTesting: false, // receiving test to
-                            Autoshow: true
-                        };
-                        if (AdMob) {
-                            AdMob.createBanner({
-                                adId: result.banner,
-                                adSize: AdMob.SMART_BANNER,
-                                position: AdMob.AD_POSITION.TOP_CENTER,
-                                autoShow: true,
-                                isTesting: false,
-                                overlap: false
-                            });
-                            AdMob.prepareInterstitial({
-                                adId: result.interstitial,
-                                isTesting: false,
-                                autoShow: true
-                            });
-                            AdMob.showInterstitial();
-                        }
-                    }
-                }, function (error) {
-                    console.log('Error recuperando plataforma:' + error);
-                });
             }
-            //$cordovaGoogleAnalytics.debugMode();
-            $cordovaGoogleAnalytics.startTrackerWithId('UA-58872977-5');*/
+            window.localStorage['deviceId'] = deviceId;
+            if (Super.getMobile()) {
+                //console.log('Antes de entrar al Ad section: ' + $cordovaDevice.getVersion());
+                //console.log('La validación es: ' + $cordovaDevice.getVersion() >= "4.2");
+                version = $cordovaDevice.getVersion().split(".");
+                if (($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") != 0) || ((version[0] >= "4")) && (version[1] > "1")) {
+                    Ads.getPlat().then(function (result) {
+                        if (result) {
+                            //console.log('Se ha recuperado la plataforma:' + JSON.stringify(result));
+                            //console.log('La variable admob: '+JSON.stringify(AdMob));
+                            Ads.getPlat().then(function (result) {
+                                if (result) {
+                                    var options = {
+                                        publisherID: result.banner,
+                                        adSize: 'SMART_BANNER',
+                                        bannerAtTop: true, // Set to true, to put banner at top
+                                        overlap: false, // True to allow banner overlap webview
+                                        offsetTopBar: true, // True to avoid ios7 status bar overlap
+                                        isTesting: false, // receiving test to
+                                        Autoshow: true
+                                    };
+                                    if (AdMob) {
+                                        if ($cordovaDevice.getPlatform().toUpperCase().indexOf("WIN") != 0) {
+                                            AdMob.createBanner({
+                                                adId: result.banner,
+                                                adSize: AdMob.SMART_BANNER,
+                                                position: AdMob.AD_POSITION.TOP_CENTER,
+                                                autoShow: true,
+                                                isTesting: false,
+                                                overlap: false
+                                            });
+
+                                            AdMob.prepareInterstitial({
+                                                adId: result.interstitial,
+                                                isTesting: false,
+                                                autoShow: true
+                                            });
+                                            AdMob.showInterstitial();
+                                        }
+                                    }
+                                }
+                            }, function (error) {
+                                console.log('Error recuperando plataforma:' + error);
+                            });
+                            //$cordovaGoogleAnalytics.debugMode();
+                            $cordovaGoogleAnalytics.startTrackerWithId('UA-58872977-5');
+                        }
+                    })
+                }
+            }
+            console.log('Iniciar datos');
             Cats.data();
-        });
+        })
     })
     .run(function($rootScope,$location,Cats){
         $rootScope.$on('dbinit:uptodate',function(){

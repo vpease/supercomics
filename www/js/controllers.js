@@ -1,10 +1,10 @@
-angular.module('controllers', ['ngCordova'])
+angular.module('controllers', ['ngCordova','Super'])
     .controller('LoginCtrl',function($scope,Cats,Ads,$cordovaGoogleAnalytics){
         //Cats.data();
         //$cordovaGoogleAnalytics.trackView('login');
     })
-    .controller('DashCtrl', function($scope,$location,$rootScope,$ionicTabsDelegate,Cats,comics,$cordovaGoogleAnalytics) {
-        //$cordovaGoogleAnalytics.trackView('dash');
+    .controller('DashCtrl', function($scope,$location,$rootScope,$ionicTabsDelegate,Cats,comics,Super,$cordovaGoogleAnalytics) {
+        if (Super.getMobile()) $cordovaGoogleAnalytics.trackView('dash');
         $scope.comics = comics.rows;
         $scope.setLink = function(pCat,pCol,pCom){
             url = "/tab/comic/"+pCat+"/"+pCol+"/"+pCom;
@@ -36,8 +36,8 @@ angular.module('controllers', ['ngCordova'])
         getCover();
 
     })
-    .controller('CatsCtrl', function($scope,$ionicSlideBoxDelegate, cats,$cordovaGoogleAnalytics) {
-        //$cordovaGoogleAnalytics.trackView('cats');
+    .controller('CatsCtrl', function($scope,$ionicSlideBoxDelegate, cats,Super,$cordovaGoogleAnalytics) {
+        if (Super.getMobile()) $cordovaGoogleAnalytics.trackView('cats');
         $scope.$on('$ionicView.enter',function(){
             console.log('Updating slidebox');
             $ionicSlideBoxDelegate.update();
@@ -51,8 +51,8 @@ angular.module('controllers', ['ngCordova'])
             console.log("Changed: "+index);
         }
     })
-    .controller('CatDetailCtrl', function($scope,cat,cols,Cats,$cordovaGoogleAnalytics) {
-        //$cordovaGoogleAnalytics.trackView('CatDetail');
+    .controller('CatDetailCtrl', function($scope,cat,cols,Cats,Super,$cordovaGoogleAnalytics) {
+        if (Super.getMobile()) $cordovaGoogleAnalytics.trackView('CatDetail');
         $scope.cat = cat;
         $scope.cols = cols.rows;
         $scope.token="";
@@ -72,8 +72,8 @@ angular.module('controllers', ['ngCordova'])
         };
         getCover();
     })
-    .controller('CatDetailComicsCtrl',function($scope,cat,col,comics,Cats,$cordovaGoogleAnalytics){
-        //$cordovaGoogleAnalytics.trackView('CatDetailComics');
+    .controller('CatDetailComicsCtrl',function($scope,cat,col,comics,Cats,Super,$cordovaGoogleAnalytics){
+        if (Super.getMobile()) $cordovaGoogleAnalytics.trackView('CatDetailComics');
         $scope.cat= cat;
         $scope.col = col;
         $scope.comics = comics.rows;
@@ -105,8 +105,8 @@ angular.module('controllers', ['ngCordova'])
         };
         getCover();
     })
-    .controller('CatDetailComicCtrl',function($scope,$state,cat,col,comic,Cats,$cordovaGoogleAnalytics){
-        //$cordovaGoogleAnalytics.trackView('CatDetailComic');
+    .controller('CatDetailComicCtrl',function($scope,$state,cat,col,comic,Cats,Super,$cordovaGoogleAnalytics){
+        if (Super.getMobile()) $cordovaGoogleAnalytics.trackView('CatDetailComic');
         $scope.cat= cat;
         $scope.col = col;
         $scope.comic = comic;
