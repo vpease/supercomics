@@ -1,7 +1,7 @@
 {
   "name": "supercomics",
   "version": "1.0.0",
-  "description": "supercomics: An Ionic project",
+  "description": "supercomics: Tu catálogo de comics en Perú",
   "dependencies": {
     "gulp": "^3.5.6",
     "gulp-sass": "^0.7.1",
@@ -18,10 +18,11 @@
     "com.google.playservices",
     "https://github.com/brodysoft/Cordova-SQLitePlugin.git",
     "com.ionic.keyboard",
-    "org.apache.cordova.device",
     "https://github.com/danwilson/google-analytics-plugin.git",
     "https://github.com/floatinghotpot/cordova-admob-pro",
-    "org.apache.cordova.console"
+    "org.apache.cordova.console",
+    "com.google.cordova.admob",
+    "org.apache.cordova.device"
   ],
   "cordovaPlatforms": []
 }

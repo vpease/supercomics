@@ -5976,7 +5976,6 @@ function ajax(options, adapterCallback) {
          (/^[\s]*\{/.test(data) && /\}[\s]*$/.test(data)))) {
       data = JSON.parse(data);
     }
-
     if (response.statusCode >= 200 && response.statusCode < 300) {
       onSuccess(data, response, callback);
     } else {
@@ -6733,7 +6732,6 @@ module.exports = function(options, callback) {
     var response = {
       statusCode: xhr.status
     };
-
     if (xhr.status >= 200 && xhr.status < 300) {
       var data;
       if (options.binary) {

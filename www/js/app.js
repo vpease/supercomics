@@ -85,6 +85,7 @@ angular.module('comics', ['ionic', 'controllers', 'services','ngCordova','Super'
          $rootScope.$on('db:uptodate',function(){
              console.log('Terminó la syncronizacion de datos');
              $location.path('/tab/dash');
+             console.log('Voy al dash');
              $rootScope.$apply();
          });
     })

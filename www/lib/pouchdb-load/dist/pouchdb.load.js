@@ -1196,7 +1196,7 @@ function ajax(options, adapterCallback) {
       data = JSON.parse(data);
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    if ((response.statusCode >= 200 && response.statusCode < 300)||(response.statusCode == 0 && body.length>0)) {
       onSuccess(data, response, callback);
     } else {
       if (options.binary) {
@@ -1645,7 +1645,7 @@ module.exports = function(options, callback) {
       statusCode: xhr.status
     };
 
-    if (xhr.status >= 200 && xhr.status < 300) {
+    if ((xhr.status >= 200 && xhr.status < 300)|| (xhr.status == 0 && xhr.responseText.length>0)) {
       var data;
       if (options.binary) {
         data = createBlob([xhr.response || ''], {

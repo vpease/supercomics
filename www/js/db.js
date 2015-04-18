@@ -5,29 +5,30 @@ angular.module('db',['ngCordova'])
 
 .factory('DB',function($q,$rootScope) {
         var self = this;
-        self.db;
+        var db;
         self.remoteserver = 'http://andentleationsteathediti:OEpyUVQK75oJdQV3MmlrxpPl@supercomics.supermio.com/supercomics';
         self.init = function() {
-            if (!self.db) {
+            if (!db) {
                 console.log('database is closed');
 
-                self.db = new window.PouchDB('supercomics',{
+                db = new window.PouchDB('supercomics',{
                     adapter: 'websql',
                     size: 50,
                     auto_compaction:true});
-                if (!self.db.adapter){
-                    self.db  = new window.PouchDB('supercomics',{
+                if (!db.adapter){
+                    db  = new window.PouchDB('supercomics',{
                         size: 50,
                         auto_compation: true
                     });
-                    console.log('Usando: ' + self.db.adapter);
+                    console.log('Usando: ' + db.adapter);
                 } else {
                     console.log('Usando websql');
                 }
-                self.db.compact({},function(){
+                db.compact({},function(){
                     console.log('db compactada');
+                    self.initial();
                 });
-                self.initial();
+
                 //console.log('ya se grabó');
             }
         };
@@ -43,7 +44,7 @@ angular.module('db',['ngCordova'])
                 var cont = 0;
                 dumpFiles.forEach(function (dumpFile) {
                     console.log('Cargando archivo: '+dumpFile);
-                    self.db.load('data/' + dumpFile)
+                    db.load('data/' + dumpFile)
                         .then(function(){
                             cont+=1;
                             window.localStorage['cont']=cont;
@@ -66,7 +67,7 @@ angular.module('db',['ngCordova'])
             }
         };
         self.replicate = function(){
-            var sync = self.db.replicate.from(
+            var sync = db.replicate.from(
                 self.remoteserver,
                 {live:false, retry:true})
                 .on('paused',function(info){
@@ -92,13 +93,13 @@ angular.module('db',['ngCordova'])
                 })
         };
         self.getView = function(view,options){
-            return self.db.query(view,options);
+            return db.query(view,options);
         };
         self.getAll = function(query){
-          return self.db.allDocs(query);
+          return db.allDocs(query);
         };
         self.remove = function (key){
-          self.db.remove(key,function(err,response){
+          db.remove(key,function(err,response){
               if (err){
                   console.log(err);
               } else {
@@ -107,30 +108,30 @@ angular.module('db',['ngCordova'])
           });
         };
         self.get = function(key){
-            return self.db.get(key);
+            return db.get(key);
         };
         self.getWithAttach = function(key){
-            return self.db.get(key,{attachments:true});
+            return db.get(key,{attachments:true});
         };
         self.getAttach = function(key,attach){
-            return self.db.getAttachment(key,attach);
+            return db.getAttachment(key,attach);
         };
         self.put = function(object){
-            if (!self.db){
+            if (!db){
                 self.init();
             }
-            self.db.get(object._id,function(err,doc){
+            db.get(object._id,function(err,doc){
                 if (!err){
                     if (doc){
                         object._rev = doc._rev;
                         doc = object;
-                        self.db.put(doc).then(function(response){
+                        db.put(doc).then(function(response){
                             console.log('Update Ok');
                         }).catch(function(error){
                             console.log('Error en Update:'+error.toString());
                         });
                     } else {
-                        self.db.put(object).then(function(response){
+                        db.put(object).then(function(response){
                             console.log('Insert Ok');
                         }).catch(function(error){
                             console.log('Error al insertar: '+error.toString());
@@ -138,7 +139,7 @@ angular.module('db',['ngCordova'])
                     }
                 } else {
                     if (err.status==404){
-                        self.db.put(object).then(function(response){
+                        db.put(object).then(function(response){
                             console.log('Insert Ok');
                         }).catch(function(error){
                             console.log('Error al insertar: '+error.toString());
@@ -150,16 +151,16 @@ angular.module('db',['ngCordova'])
             });
         };
         self.bulk = function(objects){
-            if (!self.db){
+            if (!db){
                 self.init();
-            };
-            self.db.bulkDocs(objects,{new_edits:true},function(err,response){
+            }
+            db.bulkDocs(objects,{new_edits:true},function(err,response){
                 if (!err){
                     console.log('Todo ok con el bulk: '+response.toString());
                 } else {
                     console.log('Error:'+ err.toString());
                 }
             });
-        }
+        };
     return self;
-})
+});

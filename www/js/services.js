@@ -60,6 +60,7 @@ angular.module('services', ['db'])
           DB.init();
       },
       replicate: function() {
+          console.log('voy a comenzar a replicar');
           DB.replicate();
       },
       getDB: function(key){
