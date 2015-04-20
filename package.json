@@ -20,7 +20,6 @@
     "com.ionic.keyboard",
     "https://github.com/danwilson/google-analytics-plugin.git",
     "https://github.com/floatinghotpot/cordova-admob-pro",
-    "org.apache.cordova.console",
     "com.google.cordova.admob",
     "org.apache.cordova.device"
   ],

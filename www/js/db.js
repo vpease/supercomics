@@ -39,7 +39,7 @@ angular.module('db',['ngCordova'])
             console.log('verificando si hay datos cargados:'+datos);
             if (datos=='0'){
                 console.log('Entrando a la carga de data.txt');
-                var dumpFiles = ['data01.txt','data02.txt','data03.txt','data04.txt','data05.txt','data06.txt','data07.txt','data08.txt','data09.txt','data10.txt','data11.txt'];
+                var dumpFiles = ['data01.txt','data02.txt','data03.txt','data04.txt','data05.txt','data06.txt','data07.txt','data08.txt','data09.txt','data10.txt','data11.txt','data12.txt','data13.txt','data14.txt','data15.txt','data16.txt','data17.txt','data18.txt','data19.txt','data20.txt','data21.txt','data22.txt'];
                 var series = PouchDB.utils.Promise.resolve();
                 var cont = 0;
                 dumpFiles.forEach(function (dumpFile) {
